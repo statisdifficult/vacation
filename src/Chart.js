@@ -20,10 +20,12 @@ var ChartText = (function () {
     return out;
   }
 
+  /** 막대 + 뒤쪽 공백 패딩 (▇는 코드블록에서 1칸이므로 글자 수로 패딩) */
   function bar(min, maxMin) {
-    if (maxMin <= 0 || min <= 0) return '';
-    var units = Math.max(1, Math.round((min / maxMin) * BAR_WIDTH));
-    return '▇'.repeat(units);
+    var units = (maxMin <= 0 || min <= 0)
+      ? 0
+      : Math.max(1, Math.round((min / maxMin) * BAR_WIDTH));
+    return '▇'.repeat(units) + ' '.repeat(BAR_WIDTH - units + 1);
   }
 
   return {
@@ -48,8 +50,7 @@ var ChartText = (function () {
         var head = pad(r.name, nameW + 1);
         if (!r.schedText) return head + '휴무';
         if (r.workMin <= 0) return head + '휴가(종일)';
-        var b = pad(bar(r.workMin, maxMin), BAR_WIDTH + 1);
-        var line = head + b + TimeUtil.toHoursStr(r.workMin) + 'h  ' + r.schedText;
+        var line = head + bar(r.workMin, maxMin) + TimeUtil.toHoursStr(r.workMin) + 'h  ' + r.schedText;
         if (r.note) line += ' ' + r.note;
         return line;
       });
@@ -72,8 +73,7 @@ var ChartText = (function () {
       var lines = days.map(function (d) {
         var head = pad(d.label, labelW + 1);
         if (d.holiday) return head + '공휴일';
-        var b = pad(bar(d.totalMin, maxMin), BAR_WIDTH + 1);
-        var line = head + b + TimeUtil.toHoursStr(d.totalMin) + 'h';
+        var line = head + bar(d.totalMin, maxMin) + TimeUtil.toHoursStr(d.totalMin) + 'h';
         if (d.offCount > 0) line += ' (휴가 ' + d.offCount + '명)';
         return line;
       });
