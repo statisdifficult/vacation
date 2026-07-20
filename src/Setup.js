@@ -1,0 +1,86 @@
+/**
+ * 최초 설정: 필요한 시트를 생성하고 기본값을 채운다. (GAS 전용)
+ * Apps Script 편집기에서 setupSheets()를 한 번 실행한다. 이미 있는 시트는 건드리지 않는다.
+ */
+function setupSheets() {
+  var ss = SheetRepo.ss();
+
+  createIfMissing_(ss, SheetRepo.SHEET.settings, [
+    ['항목', '값', '설명'],
+    ['근무시작', '10:00', '기본 근무 시작 시각 (시간표에 없는 사람에게 적용)'],
+    ['근무종료', '19:00', '기본 근무 종료 시각'],
+    ['점심시작', '13:00', '점심시간 시작'],
+    ['점심종료', '14:00', '점심시간 종료'],
+    ['점심제외', 'TRUE', '휴가 시간 계산에서 점심시간 제외 여부 (TRUE/FALSE)'],
+    ['기본근무시간', '8', '하루 근무시간(시간). 잔여 휴가를 일수로 환산할 때 사용'],
+    ['호칭', '선생님', '봇이 사용자를 부를 때 붙이는 호칭'],
+    ['공지시간', '8', '매일 아침 공지 시각 (0~23시)'],
+    ['웹훅URL', '', '공지를 보낼 스페이스의 Webhook URL (비우면 공지 안 함)']
+  ]);
+
+  createIfMissing_(ss, SheetRepo.SHEET.types, [
+    ['종류', '연간부여(시간)', '공개여부'],
+    ['일반휴가', 108, '공개'],
+    ['보건휴가', 96, '비공개'],
+    ['병가', 0, '공개'],
+    ['특별휴가', 0, '공개'],
+    ['공가', 0, '공개']
+  ]);
+  // 연간부여 0 = 잔여 관리 안 함(무제한). 공개여부 '비공개' = 등록·현황에서 종류를 숨김
+
+  createIfMissing_(ss, SheetRepo.SHEET.members, [
+    ['이름', '이메일', '일반휴가(시간)'],
+    ['윤지훈', 'yoon2839@chilab.kr', '']
+  ]);
+  // 휴가종류명과 같은 헤더의 열에 숫자를 넣으면 그 사람만 부여시간이 재정의된다
+
+  createIfMissing_(ss, SheetRepo.SHEET.timetable, [
+    ['이름', '월', '화', '수', '목', '금'],
+    ['윤지훈', '10:00-19:00', '10:00-19:00', '10:00-19:00', '10:00-19:00', '10:00-19:00']
+  ]);
+  // 셀을 비우면 그 요일은 휴무. 토·일 근무자가 있으면 '토', '일' 열을 추가
+
+  createIfMissing_(ss, SheetRepo.SHEET.records, [
+    ['등록일시', '이름', '이메일', '종류', '날짜', '시작', '종료', '사용(분)', '상태', '비고']
+  ]);
+
+  createIfMissing_(ss, SheetRepo.SHEET.holidays, [
+    ['날짜', '명칭'],
+    // 2026년 공휴일 (참고용 — 대체공휴일 지정 등은 매년 확인 후 수정)
+    ['2026-01-01', '신정'],
+    ['2026-02-16', '설날 연휴'],
+    ['2026-02-17', '설날'],
+    ['2026-02-18', '설날 연휴'],
+    ['2026-03-01', '삼일절'],
+    ['2026-03-02', '대체공휴일'],
+    ['2026-05-05', '어린이날'],
+    ['2026-05-24', '부처님오신날'],
+    ['2026-05-25', '대체공휴일'],
+    ['2026-06-06', '현충일'],
+    ['2026-08-15', '광복절'],
+    ['2026-08-17', '대체공휴일'],
+    ['2026-09-24', '추석 연휴'],
+    ['2026-09-25', '추석'],
+    ['2026-09-26', '추석 연휴'],
+    ['2026-10-03', '개천절'],
+    ['2026-10-05', '대체공휴일'],
+    ['2026-10-09', '한글날'],
+    ['2026-12-25', '성탄절']
+  ]);
+
+  console.log('시트 준비 완료. 명단·시간표·휴가종류 시트를 실제 구성원에 맞게 수정해 주세요.');
+}
+
+function createIfMissing_(ss, name, rows) {
+  if (ss.getSheetByName(name)) return;
+  var sh = ss.insertSheet(name);
+  sh.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
+  sh.getRange(1, 1, 1, rows[0].length).setFontWeight('bold');
+  sh.setFrozenRows(1);
+  // 날짜·시간이 자동 변환되지 않도록 텍스트 서식 지정
+  if (name === SheetRepo.SHEET.records || name === SheetRepo.SHEET.holidays ||
+      name === SheetRepo.SHEET.timetable || name === SheetRepo.SHEET.settings) {
+    sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns()).setNumberFormat('@');
+    if (rows.length > 1) sh.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "timeZone": "Asia/Seoul",
+  "dependencies": {},
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/script.external_request",
+    "https://www.googleapis.com/auth/script.scriptapp"
+  ],
+  "chat": {
+    "addToSpaceFallbackMessage": "휴가봇이 추가되었습니다. /휴가도움말 을 입력해 보세요."
+  }
+}
