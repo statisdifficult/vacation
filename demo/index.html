@@ -197,6 +197,33 @@
     font-size: 13px; cursor: pointer; font-family: inherit;
   }
   .chips button:hover { border-color: var(--accent); color: var(--accent); }
+  .chips button.primary-chip {
+    background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700;
+  }
+  .chips button.primary-chip:hover { color: var(--accent-ink); opacity: 0.9; }
+
+  #regForm {
+    border-top: 1px solid var(--line); background: var(--panel-2);
+    padding: 14px 16px 12px;
+  }
+  #regForm h3 { margin: 0 0 10px; font-size: 14px; }
+  .rf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .rf-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  .rf-field[hidden] { display: none; }
+  .rf-field input, .rf-field select {
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    border-radius: 8px; padding: 8px 10px; font-size: 14px; font-family: inherit;
+  }
+  .rf-field input:focus-visible, .rf-field select:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 1px;
+  }
+  .rf-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .rf-actions .rf-primary {
+    flex: 1; border: none; background: var(--accent); color: var(--accent-ink);
+    border-radius: 10px; padding: 10px; font-weight: 700; font-size: 14px;
+    cursor: pointer; font-family: inherit;
+  }
+  .rf-error { color: var(--danger); font-size: 12px; margin-top: 8px; }
 
   form#composer {
     display: flex; gap: 8px; padding: 10px 16px 16px;
@@ -252,6 +279,31 @@
   </section>
 
   <div class="chips" id="chips"></div>
+
+  <section id="regForm" hidden>
+    <h3>🌴 휴가 등록 — 실제 봇에서는 /휴가사용 입력 시 이런 양식이 열립니다</h3>
+    <div class="rf-grid">
+      <label class="rf-field">시작일 <input type="date" id="rfStart"></label>
+      <label class="rf-field">종료일 (하루면 비워두세요) <input type="date" id="rfEnd"></label>
+      <label class="rf-field">휴가 종류 <select id="rfType"></select></label>
+      <label class="rf-field">시간
+        <select id="rfSpan">
+          <option value="종일">종일</option>
+          <option value="오전반차">오전반차</option>
+          <option value="오후반차">오후반차</option>
+          <option value="직접">시간 직접 입력</option>
+        </select>
+      </label>
+      <label class="rf-field" id="rfFromWrap" hidden>시작 시간 <input type="time" id="rfFrom" value="10:30"></label>
+      <label class="rf-field" id="rfToWrap" hidden>종료 시간 <input type="time" id="rfTo" value="15:30"></label>
+      <label class="rf-field" style="grid-column:1/-1">비고 (선택) <input type="text" id="rfMemo" placeholder="예: 병원 진료"></label>
+    </div>
+    <p class="rf-error" id="rfError" hidden></p>
+    <div class="rf-actions">
+      <button type="button" class="rf-primary" id="rfSubmit">등록</button>
+      <button type="button" class="ghost" id="rfCancel">닫기</button>
+    </div>
+  </section>
 
   <form id="composer">
     <input id="input" autocomplete="off" placeholder="예) 휴가사용 내일 오전반차" aria-label="명령 입력">
@@ -359,7 +411,7 @@ var Messages = {
     return [
       '🌴 *휴가봇 사용법*',
       '',
-      '*/휴가사용* — 휴가 등록',
+      '*/휴가사용* — 휴가 등록 (명령만 보내면 클릭 양식이 열립니다)',
       '    예) /휴가사용 7/28 10:30-15:30',
       '        /휴가사용 7월28일 오전반차',
       '        /휴가사용 8/3~8/5 일반휴가',
@@ -1387,6 +1439,52 @@ var VacationService = (function () {
     whoChips.appendChild(b);
   });
 
+  /* 휴가 등록 양식 */
+  var regForm = document.getElementById('regForm');
+  var rfError = document.getElementById('rfError');
+  var rfSpan = document.getElementById('rfSpan');
+  var rfTypeSel = document.getElementById('rfType');
+  types.forEach(function (t) {
+    var o = document.createElement('option');
+    o.value = t.name; o.textContent = t.name;
+    rfTypeSel.appendChild(o);
+  });
+  function toggleRegForm(show) {
+    regForm.hidden = !show;
+    rfError.hidden = true;
+    if (show) {
+      var todayStr = DateUtil.ymd(new Date());
+      var st = document.getElementById('rfStart');
+      if (!st.value) st.value = todayStr;
+      st.focus();
+    }
+  }
+  rfSpan.addEventListener('change', function () {
+    var manual = rfSpan.value === '직접';
+    document.getElementById('rfFromWrap').hidden = !manual;
+    document.getElementById('rfToWrap').hidden = !manual;
+  });
+  document.getElementById('rfCancel').addEventListener('click', function () { toggleRegForm(false); });
+  document.getElementById('rfSubmit').addEventListener('click', function () {
+    var sd = document.getElementById('rfStart').value;
+    if (!sd) { rfError.textContent = '시작일을 선택해 주세요.'; rfError.hidden = false; return; }
+    var ed = document.getElementById('rfEnd').value;
+    var span = rfSpan.value;
+    var timePart = span;
+    if (span === '직접') {
+      var f = document.getElementById('rfFrom').value, t = document.getElementById('rfTo').value;
+      if (!f || !t || t <= f) { rfError.textContent = '시간을 확인해 주세요 (종료가 시작보다 늦어야 합니다).'; rfError.hidden = false; return; }
+      timePart = f + '-' + t;
+    }
+    var memo = document.getElementById('rfMemo').value.trim();
+    // 양식 내용을 명령으로 변환해 전송 → 어떤 명령이 만들어지는지 채팅에서 볼 수 있다
+    var cmd = '휴가사용 ' + sd + (ed && ed !== sd ? '~' + ed : '') + ' ' + timePart +
+      ' ' + rfTypeSel.value + (memo ? ' ' + memo : '');
+    toggleRegForm(false);
+    document.getElementById('rfMemo').value = '';
+    send(cmd);
+  });
+
   /* 예시 명령 버튼 */
   var EXAMPLES = [
     '휴가사용 다음주 화 10:30-15:30',
@@ -1403,6 +1501,10 @@ var VacationService = (function () {
     '휴가도움말'
   ];
   var chips = document.getElementById('chips');
+  var regChip = document.createElement('button');
+  regChip.type = 'button'; regChip.className = 'primary-chip'; regChip.textContent = '➕ 버튼으로 휴가 등록';
+  regChip.addEventListener('click', function () { toggleRegForm(regForm.hidden); });
+  chips.appendChild(regChip);
   EXAMPLES.forEach(function (ex) {
     var b = document.createElement('button');
     b.type = 'button'; b.textContent = ex;
@@ -1514,7 +1616,7 @@ var VacationService = (function () {
   function welcome() {
     addMsg('bot', toHtml(
       '안녕하세요, 휴가봇입니다! 🌴\n' +
-      '여기는 *체험 모드*예요. 아래 버튼을 누르거나 직접 입력해 보세요.\n\n' +
+      '여기는 *체험 모드*예요. 아래 *➕ 버튼으로 휴가 등록*을 눌러 양식으로 등록하거나, 예시 버튼·직접 입력도 됩니다.\n\n' +
       '· 가상 직원 3명(윤지훈·김민수·이서연)이 각자 다른 시간표로 근무 중입니다\n' +
       '· 위쪽 이름을 눌러 다른 사람 입장에서 등록해 볼 수 있어요\n' +
       '· 📄 기록 시트 버튼으로 구글 시트에 쌓일 데이터를 미리 볼 수 있어요'

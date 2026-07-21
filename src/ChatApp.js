@@ -60,7 +60,9 @@ function handleMessage_(event) {
       return reply_(event, Messages.help(), true);
 
     case 'use': {
-      if (!args) return reply_(event, '⚠️ 등록할 휴가를 입력해 주세요.\n' + Messages.usageShort(), true);
+      // 슬래시 명령을 인자 없이 보냈거나 대화상자 설정이면 버튼 양식을 연다
+      if (event.isDialogEvent || (msg.slashCommand && !args)) return vacationDialogResponse_(ctx);
+      if (!args) return reply_(event, '⚠️ 등록할 휴가를 입력하거나 /휴가사용 으로 양식을 열어 주세요.\n' + Messages.usageShort(), true);
       var result = withLock_(function () {
         // 잠금 안에서 최신 데이터로 다시 판단해 동시 등록 충돌을 막는다
         var fresh = SheetRepo.buildCtx(user.email, user.displayName);
