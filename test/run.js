@@ -235,6 +235,19 @@ test('공휴일에는 근무 그래프 대신 안내', () => {
   const c = VacationService.workChartDay(makeCtx(), new Date(2026, 7, 17));
   assert.ok(c.message.includes('대체공휴일'));
 });
+test('관리자 전체 잔여 표', () => {
+  const ctx = makeCtx({
+    records: [{ row: 2, name: '윤지훈', email: 'yoon2839@chilab.kr', type: '일반휴가',
+                ymd: '2026-07-01', startMin: 600, endMin: 840, minutes: 240, status: '등록' }]
+  });
+  const a = VacationService.adminSummary(ctx);
+  assert.strictEqual(a.isPrivate, true);
+  assert.deepStrictEqual(a.typeNames, ['일반휴가', '보건휴가']); // 부여 0인 병가·특별휴가 제외
+  assert.ok(a.message.includes('윤지훈'));
+  assert.ok(a.message.includes('김민수'));
+  assert.ok(a.message.includes('104/108h')); // 108h - 4h 사용
+  assert.ok(a.message.includes('96/96h'));   // 보건휴가 미사용
+});
 test('주간 그래프', () => {
   const c = VacationService.workChartWeek(makeCtx(), TODAY);
   assert.ok(c.message.includes('월'));

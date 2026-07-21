@@ -31,6 +31,19 @@ var ChartText = (function () {
   return {
     displayWidth: displayWidth,
 
+    /** 등폭 텍스트 표. headers: [...], rows: [[...], ...] */
+    buildTable: function (headers, rows) {
+      var all = [headers].concat(rows);
+      var widths = headers.map(function (_, c) {
+        return Math.max.apply(null, all.map(function (r) { return displayWidth(String(r[c])); }));
+      });
+      var lines = all.map(function (r) {
+        return r.map(function (cell, c) { return pad(String(cell), widths[c]); }).join('  ').replace(/\s+$/, '');
+      });
+      lines.splice(1, 0, widths.map(function (w) { return '─'.repeat(w); }).join('  '));
+      return '```\n' + lines.join('\n') + '\n```';
+    },
+
     /**
      * 하루 근무 현황 (개인별).
      * rows: [{ name, workMin, schedText, note }]

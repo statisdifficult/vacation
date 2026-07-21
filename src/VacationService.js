@@ -271,6 +271,42 @@ var VacationService = (function () {
       return { message: ChartText.buildDayChart('📊 *' + kd + ' 근무 현황*', rows), isPrivate: false };
     },
 
+    /**
+     * 전체 구성원의 잔여 휴가 요약 (관리자용, 항상 비공개 응답).
+     * 반환: { message, isPrivate, typeNames, table: [{name, cells:[{alloc,used,remain}|null]}] }
+     */
+    adminSummary: function (ctx) {
+      var year = ctx.today.getFullYear();
+      var typeNames = [];
+      ctx.types.forEach(function (t) {
+        var tracked = t.allocMin > 0 || ctx.members.some(function (m) {
+          return m.alloc && m.alloc[t.name] > 0;
+        });
+        if (tracked) typeNames.push(t.name);
+      });
+
+      var table = ctx.members.map(function (m) {
+        return {
+          name: m.name,
+          cells: typeNames.map(function (tn) {
+            var alloc = (m.alloc && m.alloc[tn]) || 0;
+            if (alloc <= 0) return null;
+            var used = usedMinutes(ctx, m.email, tn, year);
+            return { alloc: alloc, used: used, remain: alloc - used };
+          })
+        };
+      });
+
+      var rows = table.map(function (r) {
+        return [r.name].concat(r.cells.map(function (c) {
+          return c ? TimeUtil.toHoursStr(c.remain) + '/' + TimeUtil.toHoursStr(c.alloc) + 'h' : '-';
+        }));
+      });
+      var message = '👥 *전체 잔여 휴가* (' + year + '년, 잔여/부여 시간)\n' +
+        ChartText.buildTable(['이름'].concat(typeNames), rows);
+      return { message: message, isPrivate: true, typeNames: typeNames, table: table };
+    },
+
     /** 이번 주(월~금, 시간표에 토·일이 있으면 포함) 요일별 근무 시간 합계 그래프 */
     workChartWeek: function (ctx, anyDate) {
       var mon = DateUtil.monday(anyDate);

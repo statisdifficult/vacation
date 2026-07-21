@@ -24,6 +24,8 @@ function postDailyNotice() {
   var statusMsg = VacationService.status(ctx, today).message;
   parts.push(statusMsg);
 
+  try { refreshAdminSheet(); } catch (e) { console.warn('잔여현황 갱신 실패: ' + e); }
+
   UrlFetchApp.fetch(settings.webhookUrl, {
     method: 'post',
     contentType: 'application/json; charset=UTF-8',

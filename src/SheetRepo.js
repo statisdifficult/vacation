@@ -67,7 +67,8 @@ var SheetRepo = (function () {
       defaultDailyMin: (Number(map['기본근무시간']) || 8) * 60,
       honorific: String(map['호칭'] || '선생님').trim(),
       noticeHour: Number(map['공지시간']) || 8,
-      webhookUrl: String(map['웹훅URL'] || '').trim()
+      webhookUrl: String(map['웹훅URL'] || '').trim(),
+      adminEmails: String(map['관리자'] || '').toLowerCase().split(/[,;\s]+/).filter(Boolean)
     };
   }
 
