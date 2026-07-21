@@ -1,0 +1,1265 @@
+<title>휴가봇 체험</title>
+<style>
+  :root {
+    --bg: #eef3f0;
+    --panel: #ffffff;
+    --panel-2: #f5f8f6;
+    --ink: #1c2622;
+    --muted: #5c6d65;
+    --line: #dbe4df;
+    --accent: #0e7a5f;
+    --accent-ink: #ffffff;
+    --user-bubble: #d9efe4;
+    --chip: #e5ede9;
+    --chip-ink: #2c3a34;
+    --private: #6f56b0;
+    --private-bg: #f1edfa;
+    --danger: #b3543f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1412;
+      --panel: #161d1a;
+      --panel-2: #1b2420;
+      --ink: #e6ece9;
+      --muted: #92a29a;
+      --line: #263029;
+      --accent: #4cc39a;
+      --accent-ink: #0b241c;
+      --user-bubble: #1f3a30;
+      --chip: #202a25;
+      --chip-ink: #cfdcd6;
+      --private: #b7a0ea;
+      --private-bg: #251d38;
+      --danger: #e08a76;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #eef3f0; --panel: #ffffff; --panel-2: #f5f8f6; --ink: #1c2622;
+    --muted: #5c6d65; --line: #dbe4df; --accent: #0e7a5f; --accent-ink: #ffffff;
+    --user-bubble: #d9efe4; --chip: #e5ede9; --chip-ink: #2c3a34;
+    --private: #6f56b0; --private-bg: #f1edfa; --danger: #b3543f;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1412; --panel: #161d1a; --panel-2: #1b2420; --ink: #e6ece9;
+    --muted: #92a29a; --line: #263029; --accent: #4cc39a; --accent-ink: #0b241c;
+    --user-bubble: #1f3a30; --chip: #202a25; --chip-ink: #cfdcd6;
+    --private: #b7a0ea; --private-bg: #251d38; --danger: #e08a76;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+    line-height: 1.55;
+  }
+  .app {
+    max-width: 640px;
+    margin: 0 auto;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    background: var(--panel);
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+  }
+
+  header.top {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .avatar {
+    width: 42px; height: 42px; flex: none;
+    display: grid; place-items: center;
+    background: var(--accent); color: var(--accent-ink);
+    border-radius: 12px; font-size: 22px;
+  }
+  .botname { font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+  .tag {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+    color: var(--accent); border: 1px solid var(--accent);
+    border-radius: 999px; padding: 1px 8px;
+  }
+  .sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  header.top .grow { flex: 1; }
+  button.ghost {
+    background: none; border: 1px solid var(--line); color: var(--muted);
+    border-radius: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer;
+    font-family: inherit;
+  }
+  button.ghost:hover { color: var(--ink); border-color: var(--muted); }
+
+  .whoRow {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+    background: var(--panel-2); font-size: 13px;
+  }
+  .wholabel { color: var(--muted); font-size: 12px; }
+  .who {
+    border: 1px solid var(--line); background: var(--panel);
+    color: var(--ink); border-radius: 999px; padding: 4px 12px;
+    font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  .who[aria-pressed="true"] {
+    background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+    font-weight: 700;
+  }
+
+  #records {
+    border-bottom: 1px solid var(--line); background: var(--panel-2);
+    padding: 10px 16px; max-height: 220px; overflow: auto; font-size: 13px;
+  }
+  #records h3 { margin: 2px 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; }
+  #records table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  #records th, #records td {
+    text-align: left; padding: 4px 10px 4px 0; border-bottom: 1px solid var(--line);
+    white-space: nowrap; font-weight: 400;
+  }
+  #records th { color: var(--muted); font-size: 12px; }
+  #records tr.cancelled td { color: var(--muted); text-decoration: line-through; }
+  #records .empty { color: var(--muted); }
+
+  main#chat {
+    flex: 1; overflow-y: auto; padding: 18px 16px 8px;
+    display: flex; flex-direction: column; gap: 14px;
+    scroll-behavior: smooth;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    main#chat { scroll-behavior: auto; }
+    .msg { animation: none !important; }
+  }
+  .msg { display: flex; gap: 10px; max-width: 100%; animation: rise 0.18s ease-out; }
+  @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .msg.user { justify-content: flex-end; }
+  .msg .mini {
+    width: 30px; height: 30px; flex: none; margin-top: 2px;
+    display: grid; place-items: center; font-size: 15px;
+    background: var(--accent); color: var(--accent-ink); border-radius: 9px;
+  }
+  .stack { max-width: min(78%, 460px); display: flex; flex-direction: column; gap: 4px; }
+  .msg.user .stack { align-items: flex-end; }
+  .meta { font-size: 11px; color: var(--muted); padding: 0 4px; display: flex; gap: 6px; align-items: center; }
+  .bubble {
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 4px 14px 14px 14px; padding: 9px 13px; font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+  .msg.user .bubble {
+    background: var(--user-bubble); border-color: transparent;
+    border-radius: 14px 4px 14px 14px;
+  }
+  .msg.system { justify-content: center; }
+  .msg.system .bubble {
+    background: none; border: none; color: var(--muted); font-size: 12px; padding: 0;
+  }
+  .bubble.private { border-color: var(--private); background: var(--private-bg); }
+  .lock {
+    color: var(--private); font-weight: 600;
+  }
+  .bubble b { font-weight: 700; }
+  .bubble pre {
+    margin: 8px -4px; padding: 10px 12px; overflow-x: auto;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    font-family: ui-monospace, "SF Mono", Consolas, "Nanum Gothic Coding", monospace;
+    font-size: 12.5px; line-height: 1.5; font-variant-numeric: tabular-nums;
+  }
+
+  .chips {
+    display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px 4px;
+    scrollbar-width: thin;
+  }
+  .chips button {
+    flex: none; border: 1px solid var(--line); background: var(--chip);
+    color: var(--chip-ink); border-radius: 999px; padding: 6px 13px;
+    font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  .chips button:hover { border-color: var(--accent); color: var(--accent); }
+
+  form#composer {
+    display: flex; gap: 8px; padding: 10px 16px 16px;
+  }
+  #input {
+    flex: 1; border: 1.5px solid var(--line); background: var(--panel);
+    color: var(--ink); border-radius: 12px; padding: 11px 14px;
+    font-size: 15px; font-family: inherit;
+  }
+  #input:focus-visible, .who:focus-visible, .chips button:focus-visible,
+  button.ghost:focus-visible, #send:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 1px;
+  }
+  #input:focus { border-color: var(--accent); outline: none; }
+  #send {
+    border: none; background: var(--accent); color: var(--accent-ink);
+    border-radius: 12px; padding: 0 18px; font-size: 14px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+  }
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="avatar" aria-hidden="true">🌴</div>
+    <div class="grow">
+      <div class="botname">휴가봇 <span class="tag">체험 모드</span></div>
+      <div class="sub">설치 없이 눌러보는 데모 · 입력한 내용은 이 브라우저에만 저장됩니다</div>
+    </div>
+    <button class="ghost" id="resetBtn" type="button">초기화</button>
+  </header>
+
+  <div class="whoRow">
+    <span class="wholabel">입력하는 사람</span>
+    <span id="whoChips"></span>
+    <span style="flex:1"></span>
+    <button class="ghost" id="recBtn" type="button" aria-expanded="false">📄 기록 시트</button>
+  </div>
+
+  <section id="records" hidden>
+    <h3>휴가기록 시트 — 실제 봇에서는 구글 시트에 이렇게 쌓입니다</h3>
+    <div id="recBody"></div>
+  </section>
+
+  <main id="chat" aria-live="polite"></main>
+
+  <div class="chips" id="chips"></div>
+
+  <form id="composer">
+    <input id="input" autocomplete="off" placeholder="예) 휴가사용 내일 오전반차" aria-label="명령 입력">
+    <button id="send" type="submit">보내기</button>
+  </form>
+</div>
+
+<script>
+/* ── 휴가봇 핵심 로직 (src/ 폴더와 동일한 코드가 빌드 시 삽입됨) ── */
+/**
+ * 시간·날짜 유틸리티.
+ * GAS 서비스 의존성이 없어 Node.js에서도 테스트할 수 있다. (test/run.js)
+ */
+var TimeUtil = {
+  /** "10:30" | "10시30분" | "10시" → 자정 기준 분. 실패 시 null */
+  parseHM: function (s) {
+    if (s == null || s === '') return null;
+    var t = String(s).trim();
+    var m = t.match(/^([01]?\d|2[0-3]):([0-5]\d)$/) ||
+            t.match(/^([01]?\d|2[0-3])시(?:([0-5]?\d)분?)?$/);
+    if (!m) return null;
+    return Number(m[1]) * 60 + Number(m[2] || 0);
+  },
+
+  /** 630 → "10:30" */
+  fmtHM: function (min) {
+    var h = Math.floor(min / 60), m = min % 60;
+    return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+  },
+
+  /** 두 구간 [aS,aE), [bS,bE)이 겹치는 분 */
+  overlapMin: function (aS, aE, bS, bE) {
+    return Math.max(0, Math.min(aE, bE) - Math.max(aS, bS));
+  },
+
+  /** 점심시간(lunch = {start, end, excluded})을 제외한 실제 사용 분 */
+  netMinutes: function (startMin, endMin, lunch) {
+    var total = Math.max(0, endMin - startMin);
+    if (lunch && lunch.excluded) {
+      total -= this.overlapMin(startMin, endMin, lunch.start, lunch.end);
+    }
+    return Math.max(0, total);
+  },
+
+  /** 90 → "1시간 30분", 120 → "2시간", 30 → "30분" */
+  fmtDuration: function (min) {
+    var h = Math.floor(min / 60), m = min % 60;
+    if (h && m) return h + '시간 ' + m + '분';
+    if (h) return h + '시간';
+    return m + '분';
+  },
+
+  /** 분 → 시간 숫자 문자열 (270 → "4.5") */
+  toHoursStr: function (min) {
+    return String(Math.round((min / 60) * 100) / 100);
+  }
+};
+
+var DateUtil = {
+  WEEKDAYS: ['일', '월', '화', '수', '목', '금', '토'],
+
+  /** Date → "2026-07-28" */
+  ymd: function (d) {
+    var p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  },
+
+  /** "2026-07-28" → Date */
+  fromYmd: function (s) {
+    var m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+  },
+
+  /** Date → "7/28(화)" */
+  kdate: function (d) {
+    return (d.getMonth() + 1) + '/' + d.getDate() + '(' + this.WEEKDAYS[d.getDay()] + ')';
+  },
+
+  addDays: function (d, n) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  },
+
+  /** 시각 성분을 제거한 그날 0시 */
+  dayStart: function (d) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  },
+
+  isWeekend: function (d) {
+    return d.getDay() === 0 || d.getDay() === 6;
+  },
+
+  /** 그 주의 월요일 */
+  monday: function (d) {
+    var dow = d.getDay();
+    return this.addDays(d, dow === 0 ? -6 : 1 - dow);
+  }
+};
+
+/**
+ * 사용자에게 보내는 한국어 메시지 템플릿.
+ * GAS 서비스 의존성이 없어 Node.js에서도 테스트할 수 있다. (test/run.js)
+ */
+var Messages = {
+  help: function () {
+    return [
+      '🌴 *휴가봇 사용법*',
+      '',
+      '*/휴가사용* — 휴가 등록',
+      '    예) /휴가사용 7/28 10:30-15:30',
+      '        /휴가사용 7월28일 오전반차',
+      '        /휴가사용 8/3~8/5 일반휴가',
+      '        /휴가사용 내일 종일 보건휴가',
+      '*/휴가취소* — 등록한 휴가 취소',
+      '    예) /휴가취소 7/28',
+      '*/휴가조회* — 내 잔여·예정 휴가 (본인에게만 보임)',
+      '*/휴가현황* — 특정 날짜의 휴가자 목록',
+      '    예) /휴가현황, /휴가현황 내일',
+      '*/근무현황* — 근무 시간 막대그래프',
+      '    예) /근무현황 (오늘), /근무현황 이번주',
+      '',
+      '· 날짜: 7/28, 7월28일, 내일, 다음주 월 등 자유롭게 입력',
+      '· 시간을 입력하지 않으면 종일 휴가로 등록됩니다',
+      '· 주말·공휴일·휴무일은 자동으로 제외됩니다',
+      '· 보건휴가는 본인에게만 보이도록 처리됩니다'
+    ].join('\n');
+  },
+
+  usageShort: function () {
+    return '입력 예) /휴가사용 7/28 10:30-15:30 일반휴가\n자세한 사용법은 /휴가도움말';
+  },
+
+  noMember: function (email) {
+    return '⚠️ 명단 시트에서 회원 정보를 찾지 못했습니다.\n' +
+      '관리자에게 명단 시트에 이메일(' + (email || '알 수 없음') + ') 등록을 요청해 주세요.';
+  },
+
+  /** 잔여 표시: "104시간 (하루 8시간 기준 13일)" */
+  remainText: function (remainMin, dailyMin) {
+    var t = TimeUtil.fmtDuration(remainMin);
+    if (dailyMin > 0) {
+      var days = Math.round((remainMin / dailyMin) * 10) / 10;
+      t += ' (하루 ' + TimeUtil.toHoursStr(dailyMin) + '시간 기준 ' + days + '일)';
+    }
+    return t;
+  },
+
+  registered: function (o) {
+    // o: { name, honorific, typeName, items, totalMin, remainMin(null 가능),
+    //      dailyMin, skipped, overBudget, memo }
+    var lines = [];
+    var who = o.name + ' ' + o.honorific;
+
+    if (o.items.length === 1) {
+      var it = o.items[0];
+      lines.push(who + ', ' + it.kdate + ' ' + it.timeText + ' ' + o.typeName +
+        ' 등록되었습니다. (사용 ' + TimeUtil.fmtDuration(it.min) + ')');
+    } else {
+      lines.push(who + ', ' + o.typeName + ' ' + o.items.length + '일이 등록되었습니다.');
+      o.items.forEach(function (it) {
+        lines.push('• ' + it.kdate + ' ' + it.timeText + ' (' + TimeUtil.fmtDuration(it.min) + ')');
+      });
+      lines.push('합계 ' + TimeUtil.fmtDuration(o.totalMin));
+    }
+    if (o.remainMin != null) {
+      lines.push('남은 ' + o.typeName + ': ' + this.remainText(o.remainMin, o.dailyMin));
+    }
+    if (o.memo) lines.push('비고: ' + o.memo);
+    if (o.skipped && o.skipped.length) lines.push('※ 제외: ' + o.skipped.join(', '));
+    if (o.overBudget) lines.push('⚠️ 잔여 휴가를 초과했습니다. 관리자에게 확인을 요청해 주세요.');
+    return lines.join('\n');
+  },
+
+  canceled: function (o) {
+    // o: { name, honorific, items:[{kdate,timeText,typeName,min}], remains:[{typeName,remainMin}], dailyMin }
+    var self = this;
+    var lines = [o.name + ' ' + o.honorific + ', 아래 휴가가 취소되었습니다.'];
+    o.items.forEach(function (it) {
+      lines.push('• ' + it.kdate + ' ' + it.timeText + ' ' + it.typeName +
+        ' (' + TimeUtil.fmtDuration(it.min) + ')');
+    });
+    o.remains.forEach(function (r) {
+      lines.push('남은 ' + r.typeName + ': ' + self.remainText(r.remainMin, o.dailyMin));
+    });
+    return lines.join('\n');
+  },
+
+  nothingToCancel: function (kdate) {
+    return kdate + '에 취소할 휴가가 없습니다. /휴가조회로 등록된 휴가를 확인해 보세요.';
+  }
+};
+
+/**
+ * 한국어 휴가 명령 파서.
+ * GAS 서비스 의존성이 없어 Node.js에서도 테스트할 수 있다. (test/run.js)
+ *
+ * Parser.parse('7/28 10:30-15:30 일반휴가', { today, typeNames, aliases })
+ *  → { startDate, endDate, startMin, endMin, halfDay, allDay, type, memo }
+ *  → { error: '…' }  (입력을 해석하지 못한 경우)
+ *
+ * 지원 형식
+ *  - 날짜: 7/28, 07.28, 7월28일, 2026-07-28, 오늘, 내일, 모레, 이번주 수, 다음주 월요일
+ *  - 기간: 8/3~8/5, 8/3 ~ 8/5, 7/28 7/30 (두 날짜 나열)
+ *  - 시간: 10:30-15:30, 10:30~15:30, 10시-15시30분
+ *  - 반차: 오전반차, 오후반차 (또는 "오전 반차")
+ *  - 종일: 종일/하루/전일, 시간·반차 미입력 시 종일 처리
+ *  - 종류: 휴가종류 시트에 있는 이름 ("보건" → "보건휴가"처럼 접미사 생략 허용)
+ *  - 그 외 토큰은 비고(memo)로 저장
+ */
+var Parser = (function () {
+
+  function inferYear(mo, day, today) {
+    // 연도 미입력 시: 60일 이상 지난 날짜면 내년으로 해석
+    var dt = new Date(today.getFullYear(), mo - 1, day);
+    if ((today - dt) / 86400000 > 60) dt = new Date(today.getFullYear() + 1, mo - 1, day);
+    if (dt.getMonth() !== mo - 1) return null; // 2/30 같은 존재하지 않는 날짜
+    return dt;
+  }
+
+  function parseDateToken(tok, today) {
+    var m;
+    if (tok === '오늘') return today;
+    if (tok === '내일') return DateUtil.addDays(today, 1);
+    if (tok === '모레') return DateUtil.addDays(today, 2);
+
+    m = tok.match(/^(이번주|다음주|다다음주)(일|월|화|수|목|금|토)(?:요일)?$/);
+    if (m) {
+      var offs = { '이번주': 0, '다음주': 7, '다다음주': 14 }[m[1]];
+      var target = DateUtil.WEEKDAYS.indexOf(m[2]);
+      return DateUtil.addDays(DateUtil.monday(today), offs + (target === 0 ? 6 : target - 1));
+    }
+
+    m = tok.match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})일?$/);
+    if (m) {
+      var dt = new Date(+m[1], +m[2] - 1, +m[3]);
+      return dt.getMonth() === +m[2] - 1 ? dt : null;
+    }
+
+    m = tok.match(/^(\d{1,2})[/.](\d{1,2})$/) || tok.match(/^(\d{1,2})월(\d{1,2})일?$/);
+    if (m) {
+      var mo = +m[1], d = +m[2];
+      if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+      return inferYear(mo, d, today);
+    }
+    return null;
+  }
+
+  /** "A~B" / "A-B" 토큰을 날짜 범위 또는 시간 범위로 해석 */
+  function trySplit(tok, today) {
+    var seps = ['~', '-'];
+    for (var si = 0; si < seps.length; si++) {
+      var i = tok.indexOf(seps[si]);
+      while (i !== -1) {
+        var L = tok.slice(0, i), R = tok.slice(i + 1);
+        var dl = parseDateToken(L, today), dr = parseDateToken(R, today);
+        if (dl && dr) return { kind: 'daterange', a: dl, b: dr };
+        var tl = TimeUtil.parseHM(L), tr = TimeUtil.parseHM(R);
+        if (tl != null && tr != null) return { kind: 'timerange', a: tl, b: tr };
+        i = tok.indexOf(seps[si], i + 1);
+      }
+    }
+    return null;
+  }
+
+  function matchType(tok, typeNames, aliases) {
+    var t = aliases && aliases[tok] ? aliases[tok] : tok;
+    for (var i = 0; i < typeNames.length; i++) {
+      if (typeNames[i] === t) return typeNames[i];
+    }
+    for (var j = 0; j < typeNames.length; j++) {
+      if (typeNames[j].replace(/휴가$/, '') === t) return typeNames[j];
+    }
+    return null;
+  }
+
+  /** "오전 반차", "다음주 월" 같은 두 토큰 표현을 하나로 합친다 */
+  function joinTokens(tokens) {
+    var out = [];
+    for (var i = 0; i < tokens.length; i++) {
+      var cur = tokens[i], next = tokens[i + 1];
+      if ((cur === '오전' || cur === '오후') && next === '반차') {
+        out.push(cur + '반차'); i++;
+      } else if (/^(이번주|다음주|다다음주)$/.test(cur) && next && /^(일|월|화|수|목|금|토)(요일)?$/.test(next)) {
+        out.push(cur + next); i++;
+      } else {
+        out.push(cur);
+      }
+    }
+    return out;
+  }
+
+  return {
+    parse: function (raw, opts) {
+      var typeNames = (opts && opts.typeNames) || [];
+      var aliases = (opts && opts.aliases) || { '연가': '일반휴가', '연차': '일반휴가' };
+      var today = DateUtil.dayStart((opts && opts.today) || new Date());
+
+      var text = String(raw || '').replace(/\s*[~〜]\s*/g, '~').trim();
+      if (!text) return { error: '내용을 입력해 주세요.' };
+
+      var tokens = joinTokens(text.split(/\s+/));
+      var res = {
+        startDate: null, endDate: null, startMin: null, endMin: null,
+        halfDay: null, allDay: false, type: null, memo: ''
+      };
+      var memo = [], halfAmbiguous = false;
+
+      for (var i = 0; i < tokens.length; i++) {
+        var tok = tokens[i];
+
+        if (tok === '오전반차') { res.halfDay = 'AM'; continue; }
+        if (tok === '오후반차') { res.halfDay = 'PM'; continue; }
+        if (tok === '반차') { halfAmbiguous = true; continue; }
+        if (tok === '종일' || tok === '하루' || tok === '하루종일' || tok === '전일') { res.allDay = true; continue; }
+
+        var d = parseDateToken(tok, today);
+        if (d) {
+          if (!res.startDate) res.startDate = d;
+          else if (!res.endDate) res.endDate = d;
+          else memo.push(tok);
+          continue;
+        }
+
+        var sp = trySplit(tok, today);
+        if (sp && sp.kind === 'daterange') { res.startDate = sp.a; res.endDate = sp.b; continue; }
+        if (sp && sp.kind === 'timerange') {
+          if (res.startMin == null) { res.startMin = sp.a; res.endMin = sp.b; }
+          else memo.push(tok);
+          continue;
+        }
+
+        var ty = matchType(tok, typeNames, aliases);
+        if (ty) { res.type = ty; continue; }
+
+        memo.push(tok);
+      }
+
+      if (halfAmbiguous && !res.halfDay) {
+        return { error: "'반차'는 '오전반차' 또는 '오후반차'로 입력해 주세요." };
+      }
+      if (!res.startDate) {
+        return { error: '날짜를 찾지 못했습니다. 예) 7/28, 7월28일, 내일, 다음주 월' };
+      }
+      if (!res.endDate) res.endDate = res.startDate;
+      if (res.endDate < res.startDate) {
+        var tmp = res.startDate; res.startDate = res.endDate; res.endDate = tmp;
+      }
+      if ((res.endDate - res.startDate) / 86400000 > 60) {
+        return { error: '한 번에 등록할 수 있는 기간은 최대 60일입니다.' };
+      }
+      if (res.startMin != null && res.endMin <= res.startMin) {
+        return { error: '종료 시간이 시작 시간보다 빠릅니다.' };
+      }
+      if (res.halfDay && res.startMin != null) {
+        return { error: '반차와 시간 지정은 함께 쓸 수 없습니다. 하나만 입력해 주세요.' };
+      }
+      if (res.startMin == null && !res.halfDay) res.allDay = true;
+      res.memo = memo.join(' ');
+      return res;
+    }
+  };
+})();
+
+/**
+ * 텍스트 막대그래프 (구글챗 코드블록에 표시).
+ * GAS 서비스 의존성이 없어 Node.js에서도 테스트할 수 있다. (test/run.js)
+ */
+var ChartText = (function () {
+  var BAR_WIDTH = 12; // 최대 막대 길이(칸)
+
+  /** 한글은 2칸, 영문·숫자는 1칸으로 계산한 표시 폭 */
+  function displayWidth(str) {
+    var w = 0;
+    for (var i = 0; i < str.length; i++) {
+      w += str.charCodeAt(i) > 0x2000 ? 2 : 1;
+    }
+    return w;
+  }
+
+  function pad(str, width) {
+    var out = str;
+    while (displayWidth(out) < width) out += ' ';
+    return out;
+  }
+
+  /** 막대 + 뒤쪽 공백 패딩 (▇는 코드블록에서 1칸이므로 글자 수로 패딩) */
+  function bar(min, maxMin) {
+    var units = (maxMin <= 0 || min <= 0)
+      ? 0
+      : Math.max(1, Math.round((min / maxMin) * BAR_WIDTH));
+    return '▇'.repeat(units) + ' '.repeat(BAR_WIDTH - units + 1);
+  }
+
+  return {
+    displayWidth: displayWidth,
+
+    /**
+     * 하루 근무 현황 (개인별).
+     * rows: [{ name, workMin, schedText, note }]
+     *   - schedText: "10:00-19:00" 또는 null(휴무)
+     *   - note: '🌴반차 2시간' 등 부가 표시
+     */
+    buildDayChart: function (title, rows) {
+      var maxMin = 0, nameW = 0;
+      rows.forEach(function (r) {
+        if (r.workMin > maxMin) maxMin = r.workMin;
+        var w = displayWidth(r.name);
+        if (w > nameW) nameW = w;
+      });
+      if (maxMin <= 0) maxMin = 480;
+
+      var lines = rows.map(function (r) {
+        var head = pad(r.name, nameW + 1);
+        if (!r.schedText) return head + '휴무';
+        if (r.workMin <= 0) return head + '휴가(종일)';
+        var line = head + bar(r.workMin, maxMin) + TimeUtil.toHoursStr(r.workMin) + 'h  ' + r.schedText;
+        if (r.note) line += ' ' + r.note;
+        return line;
+      });
+      return title + '\n```\n' + lines.join('\n') + '\n```';
+    },
+
+    /**
+     * 주간 근무 시간 (요일별 합계).
+     * days: [{ label: '월 7/20', totalMin, offCount, holiday }]
+     */
+    buildWeekChart: function (title, days) {
+      var maxMin = 0, labelW = 0;
+      days.forEach(function (d) {
+        if (d.totalMin > maxMin) maxMin = d.totalMin;
+        var w = displayWidth(d.label);
+        if (w > labelW) labelW = w;
+      });
+      if (maxMin <= 0) maxMin = 480;
+
+      var lines = days.map(function (d) {
+        var head = pad(d.label, labelW + 1);
+        if (d.holiday) return head + '공휴일';
+        var line = head + bar(d.totalMin, maxMin) + TimeUtil.toHoursStr(d.totalMin) + 'h';
+        if (d.offCount > 0) line += ' (휴가 ' + d.offCount + '명)';
+        return line;
+      });
+      return title + '\n```\n' + lines.join('\n') + '\n```';
+    }
+  };
+})();
+
+/**
+ * 휴가 등록·취소·조회·현황 핵심 로직.
+ * 모든 함수는 순수 함수로, ctx(시트에서 읽은 데이터)만 입력받아 결과를 반환한다.
+ * GAS 서비스 의존성이 없어 Node.js에서도 테스트할 수 있다. (test/run.js)
+ *
+ * ctx = {
+ *   member:  { name, email, alloc: {휴가종류: 분} } | null   — 명령을 보낸 사람
+ *   members: [{ name, email, alloc }]                        — 전체 명단(명단 시트 순서)
+ *   types:   [{ name, allocMin, isPublic }]                  — 휴가종류 시트
+ *   settings:{ workStart, workEnd, lunchStart, lunchEnd, lunchExcluded,
+ *              defaultDailyMin, honorific }
+ *   schedule:{ 이름: { 요일번호(0~6): {start, end} } }        — 시간표 시트
+ *   holidays:{ 'yyyy-MM-dd': '명칭' }                        — 공휴일 시트
+ *   records: [{ row, name, email, type, ymd, startMin, endMin, minutes, status }]
+ *   today:   Date
+ * }
+ */
+var VacationService = (function () {
+
+  function lunchOf(settings) {
+    return { start: settings.lunchStart, end: settings.lunchEnd, excluded: settings.lunchExcluded };
+  }
+
+  function typeOf(ctx, name) {
+    for (var i = 0; i < ctx.types.length; i++) {
+      if (ctx.types[i].name === name) return ctx.types[i];
+    }
+    return null;
+  }
+
+  /** 이름 기준 그날의 근무시간표. 근무일이 아니면 null */
+  function scheduleFor(ctx, name, date) {
+    var lunch = lunchOf(ctx.settings);
+    var tt = ctx.schedule[name];
+    if (tt) {
+      var cell = tt[date.getDay()];
+      if (!cell) return null;
+      return { start: cell.start, end: cell.end, net: TimeUtil.netMinutes(cell.start, cell.end, lunch) };
+    }
+    // 시간표에 없는 사람은 월~금 기본 근무시간 적용
+    if (DateUtil.isWeekend(date)) return null;
+    return {
+      start: ctx.settings.workStart,
+      end: ctx.settings.workEnd,
+      net: TimeUtil.netMinutes(ctx.settings.workStart, ctx.settings.workEnd, lunch)
+    };
+  }
+
+  /** 해당 연도에 사용한 분(상태=등록) */
+  function usedMinutes(ctx, email, typeName, year) {
+    var sum = 0;
+    ctx.records.forEach(function (r) {
+      if (r.status === '등록' && r.email === email && r.type === typeName &&
+          r.ymd.slice(0, 4) === String(year)) {
+        sum += r.minutes;
+      }
+    });
+    return sum;
+  }
+
+  function activeRecordsOn(ctx, ymd) {
+    return ctx.records.filter(function (r) { return r.status === '등록' && r.ymd === ymd; });
+  }
+
+  function timeText(r) {
+    return TimeUtil.fmtHM(r.startMin) + '-' + TimeUtil.fmtHM(r.endMin);
+  }
+
+  return {
+    scheduleFor: scheduleFor,
+    usedMinutes: usedMinutes,
+
+    /** 휴가 등록. { ok, rows, message, isPrivate } | { ok:false, message } */
+    register: function (ctx, parsed) {
+      if (parsed.error) return { ok: false, message: '⚠️ ' + parsed.error + '\n' + Messages.usageShort() };
+      if (!ctx.member) return { ok: false, message: Messages.noMember(null) };
+
+      var typeName = parsed.type || (ctx.types[0] && ctx.types[0].name) || '일반휴가';
+      var typeInfo = typeOf(ctx, typeName) || { name: typeName, allocMin: 0, isPublic: true };
+      var lunch = lunchOf(ctx.settings);
+      var member = ctx.member;
+
+      var items = [], skipped = [], conflicts = [];
+      for (var d = parsed.startDate; d <= parsed.endDate; d = DateUtil.addDays(d, 1)) {
+        var ymd = DateUtil.ymd(d), kd = DateUtil.kdate(d);
+        var hol = ctx.holidays[ymd];
+        if (hol) { skipped.push(kd + ' ' + (typeof hol === 'string' ? hol : '공휴일')); continue; }
+
+        var sched = scheduleFor(ctx, member.name, d);
+        if (!sched) { skipped.push(kd + ' 휴무일'); continue; }
+
+        var s, e, min;
+        if (parsed.startMin != null) {
+          s = parsed.startMin; e = parsed.endMin;
+          min = TimeUtil.netMinutes(s, e, lunch);
+        } else if (parsed.halfDay) {
+          var mid = sched.start + Math.round((sched.end - sched.start) / 2);
+          if (parsed.halfDay === 'AM') { s = sched.start; e = mid; }
+          else { s = mid; e = sched.end; }
+          min = TimeUtil.netMinutes(s, e, lunch);
+        } else {
+          s = sched.start; e = sched.end; min = sched.net;
+        }
+        if (min <= 0) { skipped.push(kd + ' 사용 시간 0'); continue; }
+
+        var overlapped = activeRecordsOn(ctx, ymd).filter(function (r) {
+          return r.email === member.email && TimeUtil.overlapMin(r.startMin, r.endMin, s, e) > 0;
+        });
+        if (overlapped.length) {
+          conflicts.push(kd + ' ' + timeText(overlapped[0]) + ' ' + overlapped[0].type);
+          continue;
+        }
+        items.push({ ymd: ymd, kdate: kd, s: s, e: e, min: min,
+                     timeText: TimeUtil.fmtHM(s) + '-' + TimeUtil.fmtHM(e) });
+      }
+
+      if (conflicts.length) {
+        return { ok: false, message: '⚠️ 이미 등록된 휴가와 겹칩니다: ' + conflicts.join(', ') +
+                 '\n먼저 /휴가취소 후 다시 등록해 주세요.' };
+      }
+      if (!items.length) {
+        var why = skipped.length ? ' (' + skipped.join(', ') + ')' : '';
+        return { ok: false, message: '⚠️ 등록할 수 있는 날이 없습니다.' + why };
+      }
+
+      var totalMin = items.reduce(function (a, it) { return a + it.min; }, 0);
+
+      var allocMin = (member.alloc && member.alloc[typeName] != null)
+        ? member.alloc[typeName] : typeInfo.allocMin;
+      var remainMin = null, overBudget = false;
+      if (allocMin > 0) {
+        var year = items[0].ymd.slice(0, 4);
+        remainMin = allocMin - usedMinutes(ctx, member.email, typeName, year) - totalMin;
+        overBudget = remainMin < 0;
+      }
+
+      var rows = items.map(function (it) {
+        return [member.name, member.email, typeName, it.ymd,
+                TimeUtil.fmtHM(it.s), TimeUtil.fmtHM(it.e), it.min, '등록', parsed.memo || ''];
+      });
+
+      var message = Messages.registered({
+        name: member.name, honorific: ctx.settings.honorific, typeName: typeName,
+        items: items, totalMin: totalMin, remainMin: remainMin,
+        dailyMin: ctx.settings.defaultDailyMin, skipped: skipped,
+        overBudget: overBudget, memo: parsed.memo
+      });
+      return { ok: true, rows: rows, message: message, isPrivate: !typeInfo.isPublic };
+    },
+
+    /** 휴가 취소. { ok, rowIndexes, message, isPrivate } | { ok:false, message } */
+    cancel: function (ctx, parsed) {
+      if (parsed.error) {
+        return { ok: false, message: '⚠️ ' + parsed.error + '\n예) /휴가취소 7/28' };
+      }
+      if (!ctx.member) return { ok: false, message: Messages.noMember(null) };
+      var member = ctx.member;
+
+      var targets = [];
+      for (var d = parsed.startDate; d <= parsed.endDate; d = DateUtil.addDays(d, 1)) {
+        var ymd = DateUtil.ymd(d);
+        activeRecordsOn(ctx, ymd).forEach(function (r) {
+          if (r.email !== member.email) return;
+          if (parsed.startMin != null &&
+              TimeUtil.overlapMin(r.startMin, r.endMin, parsed.startMin, parsed.endMin) <= 0) return;
+          targets.push(r);
+        });
+      }
+      if (!targets.length) {
+        return { ok: false, message: Messages.nothingToCancel(DateUtil.kdate(parsed.startDate)) };
+      }
+
+      // 종류별 취소 후 잔여 계산
+      var canceledByType = {}, isPrivate = false;
+      targets.forEach(function (r) {
+        canceledByType[r.type] = (canceledByType[r.type] || 0) + r.minutes;
+        var ti = typeOf(ctx, r.type);
+        if (ti && !ti.isPublic) isPrivate = true;
+      });
+      var remains = [];
+      Object.keys(canceledByType).forEach(function (t) {
+        var ti = typeOf(ctx, t);
+        var allocMin = (member.alloc && member.alloc[t] != null) ? member.alloc[t] : (ti ? ti.allocMin : 0);
+        if (allocMin > 0) {
+          var year = targets[0].ymd.slice(0, 4);
+          remains.push({ typeName: t,
+            remainMin: allocMin - usedMinutes(ctx, member.email, t, year) + canceledByType[t] });
+        }
+      });
+
+      var message = Messages.canceled({
+        name: member.name, honorific: ctx.settings.honorific,
+        items: targets.map(function (r) {
+          var dt = DateUtil.fromYmd(r.ymd);
+          return { kdate: DateUtil.kdate(dt), timeText: timeText(r), typeName: r.type, min: r.minutes };
+        }),
+        remains: remains, dailyMin: ctx.settings.defaultDailyMin
+      });
+      return { ok: true, rowIndexes: targets.map(function (r) { return r.row; }),
+               message: message, isPrivate: isPrivate };
+    },
+
+    /** 내 잔여·예정 휴가 (항상 본인에게만) */
+    query: function (ctx) {
+      if (!ctx.member) return { message: Messages.noMember(null), isPrivate: true };
+      var member = ctx.member, self = this;
+      var year = ctx.today.getFullYear();
+      var lines = ['📋 *' + member.name + ' ' + ctx.settings.honorific + ' 휴가 현황*', '', '*잔여 휴가*'];
+
+      ctx.types.forEach(function (t) {
+        var allocMin = (member.alloc && member.alloc[t.name] != null) ? member.alloc[t.name] : t.allocMin;
+        if (allocMin <= 0) return;
+        var remain = allocMin - usedMinutes(ctx, member.email, t.name, year);
+        lines.push('• ' + t.name + ': ' + Messages.remainText(remain, ctx.settings.defaultDailyMin));
+      });
+
+      var todayYmd = DateUtil.ymd(ctx.today);
+      var upcoming = ctx.records.filter(function (r) {
+        return r.status === '등록' && r.email === member.email && r.ymd >= todayYmd;
+      }).sort(function (a, b) { return a.ymd < b.ymd ? -1 : 1; });
+
+      if (upcoming.length) {
+        lines.push('', '*예정된 휴가*');
+        upcoming.forEach(function (r) {
+          lines.push('• ' + DateUtil.kdate(DateUtil.fromYmd(r.ymd)) + ' ' + timeText(r) + ' ' + r.type);
+        });
+      }
+      return { message: lines.join('\n'), isPrivate: true };
+    },
+
+    /** 특정 날짜의 휴가자 목록 (비공개 종류는 '휴가'로 표시) */
+    status: function (ctx, date) {
+      var ymd = DateUtil.ymd(date), kd = DateUtil.kdate(date);
+      var recs = activeRecordsOn(ctx, ymd).sort(function (a, b) { return a.startMin - b.startMin; });
+      if (!recs.length) return { message: '🌴 ' + kd + ' 휴가자가 없습니다.', isPrivate: false };
+      var lines = ['🌴 *' + kd + ' 휴가자*'];
+      recs.forEach(function (r) {
+        var ti = typeOf(ctx, r.type);
+        var shown = (ti && !ti.isPublic) ? '휴가' : r.type;
+        lines.push('• ' + r.name + ' ' + timeText(r) + ' ' + shown);
+      });
+      return { message: lines.join('\n'), isPrivate: false };
+    },
+
+    /** 하루 근무 현황 그래프 (개인별) */
+    workChartDay: function (ctx, date) {
+      var ymd = DateUtil.ymd(date), kd = DateUtil.kdate(date);
+      var hol = ctx.holidays[ymd];
+      if (hol) return { message: '📊 ' + kd + '은(는) ' + (typeof hol === 'string' ? hol : '공휴일') + '입니다.', isPrivate: false };
+
+      var recs = activeRecordsOn(ctx, ymd);
+      var rows = ctx.members.map(function (m) {
+        var sched = scheduleFor(ctx, m.name, date);
+        if (!sched) return { name: m.name, workMin: 0, schedText: null };
+        var vacMin = 0;
+        recs.forEach(function (r) {
+          if (r.email === m.email) {
+            vacMin += TimeUtil.overlapMin(r.startMin, r.endMin, sched.start, sched.end);
+          }
+        });
+        vacMin = Math.min(vacMin, sched.net);
+        var workMin = sched.net - vacMin;
+        var note = '';
+        if (vacMin > 0 && workMin > 0) note = '🌴휴가 ' + TimeUtil.fmtDuration(vacMin);
+        return {
+          name: m.name, workMin: workMin,
+          schedText: TimeUtil.fmtHM(sched.start) + '-' + TimeUtil.fmtHM(sched.end),
+          note: note
+        };
+      });
+      return { message: ChartText.buildDayChart('📊 *' + kd + ' 근무 현황*', rows), isPrivate: false };
+    },
+
+    /** 이번 주(월~금, 시간표에 토·일이 있으면 포함) 요일별 근무 시간 합계 그래프 */
+    workChartWeek: function (ctx, anyDate) {
+      var mon = DateUtil.monday(anyDate);
+      var hasSat = false, hasSun = false;
+      Object.keys(ctx.schedule).forEach(function (n) {
+        if (ctx.schedule[n][6]) hasSat = true;
+        if (ctx.schedule[n][0]) hasSun = true;
+      });
+      var count = 5 + (hasSat ? 1 : 0) + (hasSun ? 1 : 0);
+
+      var days = [];
+      for (var i = 0; i < count; i++) {
+        var d = DateUtil.addDays(mon, i);
+        var ymd = DateUtil.ymd(d);
+        var label = DateUtil.WEEKDAYS[d.getDay()] + ' ' + (d.getMonth() + 1) + '/' + d.getDate();
+        if (ctx.holidays[ymd]) { days.push({ label: label, totalMin: 0, offCount: 0, holiday: true }); continue; }
+        var recs = activeRecordsOn(ctx, ymd);
+        var total = 0, offNames = {};
+        ctx.members.forEach(function (m) {
+          var sched = scheduleFor(ctx, m.name, d);
+          if (!sched) return;
+          var vacMin = 0;
+          recs.forEach(function (r) {
+            if (r.email === m.email) {
+              vacMin += TimeUtil.overlapMin(r.startMin, r.endMin, sched.start, sched.end);
+            }
+          });
+          vacMin = Math.min(vacMin, sched.net);
+          if (vacMin > 0) offNames[m.name] = true;
+          total += sched.net - vacMin;
+        });
+        days.push({ label: label, totalMin: total, offCount: Object.keys(offNames).length, holiday: false });
+      }
+      var title = '📊 *이번 주 근무 시간* (' + (mon.getMonth() + 1) + '/' + mon.getDate() +
+        '~' + (days.length && function (last) { return (last.getMonth() + 1) + '/' + last.getDate(); }(DateUtil.addDays(mon, count - 1))) + ')';
+      return { message: ChartText.buildWeekChart(title, days), isPrivate: false };
+    }
+  };
+})();
+
+
+/* ── 가상의 시트 데이터 (실제 봇에서는 구글 시트에서 읽는다) ── */
+(function () {
+  'use strict';
+
+  var types = [
+    { name: '일반휴가', allocMin: 108 * 60, isPublic: true },
+    { name: '보건휴가', allocMin: 96 * 60, isPublic: false },
+    { name: '병가', allocMin: 0, isPublic: true },
+    { name: '특별휴가', allocMin: 0, isPublic: true }
+  ];
+  var alloc = {};
+  types.forEach(function (t) { alloc[t.name] = t.allocMin; });
+
+  var members = [
+    { name: '윤지훈', email: 'yoon@demo.kr', alloc: alloc },
+    { name: '김민수', email: 'kim@demo.kr', alloc: alloc },
+    { name: '이서연', email: 'lee@demo.kr', alloc: alloc }
+  ];
+
+  function hm(a, b) { return { start: TimeUtil.parseHM(a), end: TimeUtil.parseHM(b) }; }
+  // 요일별 시간표: 이서연 선생님은 월·수·금만 근무하는 예시
+  var schedule = {
+    '윤지훈': { 1: hm('10:00','19:00'), 2: hm('10:00','19:00'), 3: hm('10:00','19:00'), 4: hm('10:00','19:00'), 5: hm('10:00','19:00') },
+    '김민수': { 1: hm('13:00','21:00'), 2: hm('13:00','21:00'), 3: hm('13:00','21:00'), 4: hm('13:00','21:00'), 5: hm('13:00','18:00') },
+    '이서연': { 1: hm('10:00','15:00'), 3: hm('10:00','15:00'), 5: hm('10:00','15:00') }
+  };
+  var settings = {
+    workStart: 600, workEnd: 1140, lunchStart: 780, lunchEnd: 840,
+    lunchExcluded: true, defaultDailyMin: 480, honorific: '선생님'
+  };
+  var holidays = { '2026-08-17': '대체공휴일(광복절)', '2026-09-25': '추석' };
+
+  var STORE = 'vacation-bot-demo-v1';
+  var records = [];
+  var nextRow = 2;
+  var me = members[0];
+
+  try {
+    var saved = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if (saved && saved.records) {
+      records = saved.records;
+      nextRow = saved.nextRow || (records.length + 2);
+      var found = members.filter(function (m) { return m.name === saved.me; })[0];
+      if (found) me = found;
+    }
+  } catch (e) {}
+
+  function save() {
+    try {
+      localStorage.setItem(STORE, JSON.stringify({ records: records, nextRow: nextRow, me: me.name }));
+    } catch (e) {}
+  }
+
+  function ctx() {
+    return {
+      member: me, members: members, types: types, settings: settings,
+      schedule: schedule, holidays: holidays, records: records,
+      today: DateUtil.dayStart(new Date())
+    };
+  }
+
+  var COMMANDS = {
+    '휴가사용': 'use', '휴가등록': 'use', '휴가신청': 'use',
+    '휴가취소': 'cancel', '휴가조회': 'query', '휴가현황': 'status',
+    '근무현황': 'work', '근무표': 'work', '휴가도움말': 'help', '도움말': 'help'
+  };
+
+  function handle(input) {
+    var m = input.trim().match(/^\/?(\S+)\s*([\s\S]*)$/);
+    if (!m) return null;
+    var cmd = COMMANDS[m[1]], args = m[2].trim();
+    if (!cmd) return { text: Messages.help(), priv: true };
+
+    var c = ctx();
+    var opts = { today: c.today, typeNames: types.map(function (t) { return t.name; }) };
+
+    switch (cmd) {
+      case 'help': return { text: Messages.help(), priv: true };
+      case 'use': {
+        if (!args) return { text: '⚠️ 등록할 휴가를 입력해 주세요.\n' + Messages.usageShort(), priv: true };
+        var r = VacationService.register(c, Parser.parse(args, opts));
+        if (r.ok) {
+          r.rows.forEach(function (row) {
+            records.push({
+              row: nextRow++, name: row[0], email: row[1], type: row[2], ymd: row[3],
+              startMin: TimeUtil.parseHM(row[4]), endMin: TimeUtil.parseHM(row[5]),
+              minutes: row[6], status: row[7]
+            });
+          });
+          save();
+        }
+        return { text: r.message, priv: !r.ok || r.isPrivate };
+      }
+      case 'cancel': {
+        if (!args) return { text: '⚠️ 취소할 날짜를 입력해 주세요. 예) 휴가취소 7/28', priv: true };
+        var r2 = VacationService.cancel(c, Parser.parse(args, opts));
+        if (r2.ok) {
+          records.forEach(function (rec) {
+            if (r2.rowIndexes.indexOf(rec.row) !== -1) rec.status = '취소';
+          });
+          save();
+        }
+        return { text: r2.message, priv: !r2.ok || r2.isPrivate };
+      }
+      case 'query': return { text: VacationService.query(c).message, priv: true };
+      case 'status': {
+        var date = c.today;
+        if (args) {
+          var p = Parser.parse(args, opts);
+          if (p.error) return { text: '⚠️ ' + p.error, priv: true };
+          date = p.startDate;
+        }
+        return { text: VacationService.status(c, date).message };
+      }
+      case 'work': {
+        if (/이번\s*주|주간/.test(args)) return { text: VacationService.workChartWeek(c, c.today).message };
+        var wd = c.today;
+        if (args) {
+          var wp = Parser.parse(args, opts);
+          if (wp.error) return { text: '⚠️ ' + wp.error, priv: true };
+          wd = wp.startDate;
+        }
+        return { text: VacationService.workChartDay(c, wd).message };
+      }
+    }
+  }
+
+  /* ── 화면 ── */
+  var chat = document.getElementById('chat');
+  var input = document.getElementById('input');
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function inline(s) {
+    return esc(s).replace(/\*([^*\n]+)\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
+  }
+  function toHtml(text) {
+    var parts = text.split('```');
+    var out = '';
+    for (var i = 0; i < parts.length; i++) {
+      if (i % 2 === 1) out += '<pre>' + esc(parts[i].replace(/^\n+|\n+$/g, '')) + '</pre>';
+      else out += inline(parts[i]);
+    }
+    return out;
+  }
+
+  function addMsg(kind, html, meta) {
+    var el = document.createElement('div');
+    el.className = 'msg ' + kind;
+    if (kind === 'bot') {
+      el.innerHTML = '<div class="mini" aria-hidden="true">🌴</div><div class="stack">' +
+        '<div class="meta">휴가봇' + (meta || '') + '</div>' +
+        '<div class="bubble' + (meta ? ' private' : '') + '">' + html + '</div></div>';
+    } else if (kind === 'user') {
+      el.innerHTML = '<div class="stack"><div class="meta">' + esc(me.name) + '</div>' +
+        '<div class="bubble">' + html + '</div></div>';
+    } else {
+      el.innerHTML = '<div class="bubble">' + html + '</div>';
+    }
+    chat.appendChild(el);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function send(text) {
+    if (!text.trim()) return;
+    addMsg('user', esc(text.trim()));
+    var res = handle(text);
+    if (res) {
+      var meta = res.priv
+        ? ' · <span class="lock">🔒 나에게만 보임</span>'
+        : '';
+      addMsg('bot', toHtml(res.text), meta);
+      if (res.priv) privNoteOnce();
+    }
+    renderRecords();
+  }
+
+  var privNoted = false;
+  function privNoteOnce() {
+    if (privNoted) return;
+    privNoted = true;
+    addMsg('system', '🔒 표시가 붙은 답장은 실제 톡방에서 본인 화면에만 보입니다 (보건휴가·조회·오류 안내)');
+  }
+
+  /* 사용자 전환 */
+  var whoChips = document.getElementById('whoChips');
+  members.forEach(function (m) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'who'; b.textContent = m.name;
+    b.setAttribute('aria-pressed', String(m === me));
+    b.addEventListener('click', function () {
+      if (me === m) return;
+      me = m; save();
+      Array.prototype.forEach.call(whoChips.children, function (c) {
+        c.setAttribute('aria-pressed', String(c.textContent === m.name));
+      });
+      addMsg('system', '이제 ' + m.name + ' 선생님으로 입력합니다');
+    });
+    whoChips.appendChild(b);
+  });
+
+  /* 예시 명령 버튼 */
+  var EXAMPLES = [
+    '휴가사용 다음주 화 10:30-15:30',
+    '휴가사용 내일 오전반차',
+    '휴가사용 내일 종일 보건휴가',
+    '휴가사용 8/3~8/5',
+    '휴가조회',
+    '휴가현황 내일',
+    '근무현황',
+    '근무현황 이번주',
+    '휴가취소 내일',
+    '휴가도움말'
+  ];
+  var chips = document.getElementById('chips');
+  EXAMPLES.forEach(function (ex) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = ex;
+    b.addEventListener('click', function () { send(ex); });
+    chips.appendChild(b);
+  });
+
+  /* 기록 시트 패널 */
+  var recSec = document.getElementById('records');
+  var recBody = document.getElementById('recBody');
+  var recBtn = document.getElementById('recBtn');
+  recBtn.addEventListener('click', function () {
+    recSec.hidden = !recSec.hidden;
+    recBtn.setAttribute('aria-expanded', String(!recSec.hidden));
+    renderRecords();
+  });
+  function renderRecords() {
+    if (recSec.hidden) return;
+    if (!records.length) {
+      recBody.innerHTML = '<p class="empty">아직 기록이 없습니다. 휴가를 등록해 보세요.</p>';
+      return;
+    }
+    var rows = records.map(function (r) {
+      return '<tr' + (r.status === '취소' ? ' class="cancelled"' : '') + '><td>' +
+        [r.name, r.type, r.ymd,
+         TimeUtil.fmtHM(r.startMin) + '-' + TimeUtil.fmtHM(r.endMin),
+         TimeUtil.fmtDuration(r.minutes), r.status].map(esc).join('</td><td>') +
+        '</td></tr>';
+    }).join('');
+    recBody.innerHTML = '<table><thead><tr><th>이름</th><th>종류</th><th>날짜</th>' +
+      '<th>시간</th><th>사용</th><th>상태</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  /* 입력 · 초기화 */
+  document.getElementById('composer').addEventListener('submit', function (e) {
+    e.preventDefault();
+    send(input.value);
+    input.value = '';
+    input.focus();
+  });
+  document.getElementById('resetBtn').addEventListener('click', function () {
+    if (!confirm('체험 데이터를 모두 지울까요?')) return;
+    records = []; nextRow = 2; me = members[0]; save();
+    Array.prototype.forEach.call(whoChips.children, function (c, i) {
+      c.setAttribute('aria-pressed', String(i === 0));
+    });
+    chat.innerHTML = '';
+    renderRecords();
+    welcome();
+  });
+
+  function welcome() {
+    addMsg('bot', toHtml(
+      '안녕하세요, 휴가봇입니다! 🌴\n' +
+      '여기는 *체험 모드*예요. 아래 버튼을 누르거나 직접 입력해 보세요.\n\n' +
+      '· 가상 직원 3명(윤지훈·김민수·이서연)이 각자 다른 시간표로 근무 중입니다\n' +
+      '· 위쪽 이름을 눌러 다른 사람 입장에서 등록해 볼 수 있어요\n' +
+      '· 📄 기록 시트 버튼으로 구글 시트에 쌓일 데이터를 미리 볼 수 있어요'
+    ), '');
+  }
+  welcome();
+  renderRecords();
+})();
+</script>

@@ -1,0 +1,516 @@
+<title>휴가봇 체험</title>
+<style>
+  :root {
+    --bg: #eef3f0;
+    --panel: #ffffff;
+    --panel-2: #f5f8f6;
+    --ink: #1c2622;
+    --muted: #5c6d65;
+    --line: #dbe4df;
+    --accent: #0e7a5f;
+    --accent-ink: #ffffff;
+    --user-bubble: #d9efe4;
+    --chip: #e5ede9;
+    --chip-ink: #2c3a34;
+    --private: #6f56b0;
+    --private-bg: #f1edfa;
+    --danger: #b3543f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1412;
+      --panel: #161d1a;
+      --panel-2: #1b2420;
+      --ink: #e6ece9;
+      --muted: #92a29a;
+      --line: #263029;
+      --accent: #4cc39a;
+      --accent-ink: #0b241c;
+      --user-bubble: #1f3a30;
+      --chip: #202a25;
+      --chip-ink: #cfdcd6;
+      --private: #b7a0ea;
+      --private-bg: #251d38;
+      --danger: #e08a76;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #eef3f0; --panel: #ffffff; --panel-2: #f5f8f6; --ink: #1c2622;
+    --muted: #5c6d65; --line: #dbe4df; --accent: #0e7a5f; --accent-ink: #ffffff;
+    --user-bubble: #d9efe4; --chip: #e5ede9; --chip-ink: #2c3a34;
+    --private: #6f56b0; --private-bg: #f1edfa; --danger: #b3543f;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1412; --panel: #161d1a; --panel-2: #1b2420; --ink: #e6ece9;
+    --muted: #92a29a; --line: #263029; --accent: #4cc39a; --accent-ink: #0b241c;
+    --user-bubble: #1f3a30; --chip: #202a25; --chip-ink: #cfdcd6;
+    --private: #b7a0ea; --private-bg: #251d38; --danger: #e08a76;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+    line-height: 1.55;
+  }
+  .app {
+    max-width: 640px;
+    margin: 0 auto;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    background: var(--panel);
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+  }
+
+  header.top {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .avatar {
+    width: 42px; height: 42px; flex: none;
+    display: grid; place-items: center;
+    background: var(--accent); color: var(--accent-ink);
+    border-radius: 12px; font-size: 22px;
+  }
+  .botname { font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+  .tag {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+    color: var(--accent); border: 1px solid var(--accent);
+    border-radius: 999px; padding: 1px 8px;
+  }
+  .sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  header.top .grow { flex: 1; }
+  button.ghost {
+    background: none; border: 1px solid var(--line); color: var(--muted);
+    border-radius: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer;
+    font-family: inherit;
+  }
+  button.ghost:hover { color: var(--ink); border-color: var(--muted); }
+
+  .whoRow {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+    background: var(--panel-2); font-size: 13px;
+  }
+  .wholabel { color: var(--muted); font-size: 12px; }
+  .who {
+    border: 1px solid var(--line); background: var(--panel);
+    color: var(--ink); border-radius: 999px; padding: 4px 12px;
+    font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  .who[aria-pressed="true"] {
+    background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+    font-weight: 700;
+  }
+
+  #records {
+    border-bottom: 1px solid var(--line); background: var(--panel-2);
+    padding: 10px 16px; max-height: 220px; overflow: auto; font-size: 13px;
+  }
+  #records h3 { margin: 2px 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; }
+  #records table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  #records th, #records td {
+    text-align: left; padding: 4px 10px 4px 0; border-bottom: 1px solid var(--line);
+    white-space: nowrap; font-weight: 400;
+  }
+  #records th { color: var(--muted); font-size: 12px; }
+  #records tr.cancelled td { color: var(--muted); text-decoration: line-through; }
+  #records .empty { color: var(--muted); }
+
+  main#chat {
+    flex: 1; overflow-y: auto; padding: 18px 16px 8px;
+    display: flex; flex-direction: column; gap: 14px;
+    scroll-behavior: smooth;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    main#chat { scroll-behavior: auto; }
+    .msg { animation: none !important; }
+  }
+  .msg { display: flex; gap: 10px; max-width: 100%; animation: rise 0.18s ease-out; }
+  @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .msg.user { justify-content: flex-end; }
+  .msg .mini {
+    width: 30px; height: 30px; flex: none; margin-top: 2px;
+    display: grid; place-items: center; font-size: 15px;
+    background: var(--accent); color: var(--accent-ink); border-radius: 9px;
+  }
+  .stack { max-width: min(78%, 460px); display: flex; flex-direction: column; gap: 4px; }
+  .msg.user .stack { align-items: flex-end; }
+  .meta { font-size: 11px; color: var(--muted); padding: 0 4px; display: flex; gap: 6px; align-items: center; }
+  .bubble {
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 4px 14px 14px 14px; padding: 9px 13px; font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+  .msg.user .bubble {
+    background: var(--user-bubble); border-color: transparent;
+    border-radius: 14px 4px 14px 14px;
+  }
+  .msg.system { justify-content: center; }
+  .msg.system .bubble {
+    background: none; border: none; color: var(--muted); font-size: 12px; padding: 0;
+  }
+  .bubble.private { border-color: var(--private); background: var(--private-bg); }
+  .lock {
+    color: var(--private); font-weight: 600;
+  }
+  .bubble b { font-weight: 700; }
+  .bubble pre {
+    margin: 8px -4px; padding: 10px 12px; overflow-x: auto;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    font-family: ui-monospace, "SF Mono", Consolas, "Nanum Gothic Coding", monospace;
+    font-size: 12.5px; line-height: 1.5; font-variant-numeric: tabular-nums;
+  }
+
+  .chips {
+    display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px 4px;
+    scrollbar-width: thin;
+  }
+  .chips button {
+    flex: none; border: 1px solid var(--line); background: var(--chip);
+    color: var(--chip-ink); border-radius: 999px; padding: 6px 13px;
+    font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  .chips button:hover { border-color: var(--accent); color: var(--accent); }
+
+  form#composer {
+    display: flex; gap: 8px; padding: 10px 16px 16px;
+  }
+  #input {
+    flex: 1; border: 1.5px solid var(--line); background: var(--panel);
+    color: var(--ink); border-radius: 12px; padding: 11px 14px;
+    font-size: 15px; font-family: inherit;
+  }
+  #input:focus-visible, .who:focus-visible, .chips button:focus-visible,
+  button.ghost:focus-visible, #send:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 1px;
+  }
+  #input:focus { border-color: var(--accent); outline: none; }
+  #send {
+    border: none; background: var(--accent); color: var(--accent-ink);
+    border-radius: 12px; padding: 0 18px; font-size: 14px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+  }
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="avatar" aria-hidden="true">🌴</div>
+    <div class="grow">
+      <div class="botname">휴가봇 <span class="tag">체험 모드</span></div>
+      <div class="sub">설치 없이 눌러보는 데모 · 입력한 내용은 이 브라우저에만 저장됩니다</div>
+    </div>
+    <button class="ghost" id="resetBtn" type="button">초기화</button>
+  </header>
+
+  <div class="whoRow">
+    <span class="wholabel">입력하는 사람</span>
+    <span id="whoChips"></span>
+    <span style="flex:1"></span>
+    <button class="ghost" id="recBtn" type="button" aria-expanded="false">📄 기록 시트</button>
+  </div>
+
+  <section id="records" hidden>
+    <h3>휴가기록 시트 — 실제 봇에서는 구글 시트에 이렇게 쌓입니다</h3>
+    <div id="recBody"></div>
+  </section>
+
+  <main id="chat" aria-live="polite"></main>
+
+  <div class="chips" id="chips"></div>
+
+  <form id="composer">
+    <input id="input" autocomplete="off" placeholder="예) 휴가사용 내일 오전반차" aria-label="명령 입력">
+    <button id="send" type="submit">보내기</button>
+  </form>
+</div>
+
+<script>
+/* ── 휴가봇 핵심 로직 (src/ 폴더와 동일한 코드가 빌드 시 삽입됨) ── */
+/*__BOT_SOURCES__*/
+
+/* ── 가상의 시트 데이터 (실제 봇에서는 구글 시트에서 읽는다) ── */
+(function () {
+  'use strict';
+
+  var types = [
+    { name: '일반휴가', allocMin: 108 * 60, isPublic: true },
+    { name: '보건휴가', allocMin: 96 * 60, isPublic: false },
+    { name: '병가', allocMin: 0, isPublic: true },
+    { name: '특별휴가', allocMin: 0, isPublic: true }
+  ];
+  var alloc = {};
+  types.forEach(function (t) { alloc[t.name] = t.allocMin; });
+
+  var members = [
+    { name: '윤지훈', email: 'yoon@demo.kr', alloc: alloc },
+    { name: '김민수', email: 'kim@demo.kr', alloc: alloc },
+    { name: '이서연', email: 'lee@demo.kr', alloc: alloc }
+  ];
+
+  function hm(a, b) { return { start: TimeUtil.parseHM(a), end: TimeUtil.parseHM(b) }; }
+  // 요일별 시간표: 이서연 선생님은 월·수·금만 근무하는 예시
+  var schedule = {
+    '윤지훈': { 1: hm('10:00','19:00'), 2: hm('10:00','19:00'), 3: hm('10:00','19:00'), 4: hm('10:00','19:00'), 5: hm('10:00','19:00') },
+    '김민수': { 1: hm('13:00','21:00'), 2: hm('13:00','21:00'), 3: hm('13:00','21:00'), 4: hm('13:00','21:00'), 5: hm('13:00','18:00') },
+    '이서연': { 1: hm('10:00','15:00'), 3: hm('10:00','15:00'), 5: hm('10:00','15:00') }
+  };
+  var settings = {
+    workStart: 600, workEnd: 1140, lunchStart: 780, lunchEnd: 840,
+    lunchExcluded: true, defaultDailyMin: 480, honorific: '선생님'
+  };
+  var holidays = { '2026-08-17': '대체공휴일(광복절)', '2026-09-25': '추석' };
+
+  var STORE = 'vacation-bot-demo-v1';
+  var records = [];
+  var nextRow = 2;
+  var me = members[0];
+
+  try {
+    var saved = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if (saved && saved.records) {
+      records = saved.records;
+      nextRow = saved.nextRow || (records.length + 2);
+      var found = members.filter(function (m) { return m.name === saved.me; })[0];
+      if (found) me = found;
+    }
+  } catch (e) {}
+
+  function save() {
+    try {
+      localStorage.setItem(STORE, JSON.stringify({ records: records, nextRow: nextRow, me: me.name }));
+    } catch (e) {}
+  }
+
+  function ctx() {
+    return {
+      member: me, members: members, types: types, settings: settings,
+      schedule: schedule, holidays: holidays, records: records,
+      today: DateUtil.dayStart(new Date())
+    };
+  }
+
+  var COMMANDS = {
+    '휴가사용': 'use', '휴가등록': 'use', '휴가신청': 'use',
+    '휴가취소': 'cancel', '휴가조회': 'query', '휴가현황': 'status',
+    '근무현황': 'work', '근무표': 'work', '휴가도움말': 'help', '도움말': 'help'
+  };
+
+  function handle(input) {
+    var m = input.trim().match(/^\/?(\S+)\s*([\s\S]*)$/);
+    if (!m) return null;
+    var cmd = COMMANDS[m[1]], args = m[2].trim();
+    if (!cmd) return { text: Messages.help(), priv: true };
+
+    var c = ctx();
+    var opts = { today: c.today, typeNames: types.map(function (t) { return t.name; }) };
+
+    switch (cmd) {
+      case 'help': return { text: Messages.help(), priv: true };
+      case 'use': {
+        if (!args) return { text: '⚠️ 등록할 휴가를 입력해 주세요.\n' + Messages.usageShort(), priv: true };
+        var r = VacationService.register(c, Parser.parse(args, opts));
+        if (r.ok) {
+          r.rows.forEach(function (row) {
+            records.push({
+              row: nextRow++, name: row[0], email: row[1], type: row[2], ymd: row[3],
+              startMin: TimeUtil.parseHM(row[4]), endMin: TimeUtil.parseHM(row[5]),
+              minutes: row[6], status: row[7]
+            });
+          });
+          save();
+        }
+        return { text: r.message, priv: !r.ok || r.isPrivate };
+      }
+      case 'cancel': {
+        if (!args) return { text: '⚠️ 취소할 날짜를 입력해 주세요. 예) 휴가취소 7/28', priv: true };
+        var r2 = VacationService.cancel(c, Parser.parse(args, opts));
+        if (r2.ok) {
+          records.forEach(function (rec) {
+            if (r2.rowIndexes.indexOf(rec.row) !== -1) rec.status = '취소';
+          });
+          save();
+        }
+        return { text: r2.message, priv: !r2.ok || r2.isPrivate };
+      }
+      case 'query': return { text: VacationService.query(c).message, priv: true };
+      case 'status': {
+        var date = c.today;
+        if (args) {
+          var p = Parser.parse(args, opts);
+          if (p.error) return { text: '⚠️ ' + p.error, priv: true };
+          date = p.startDate;
+        }
+        return { text: VacationService.status(c, date).message };
+      }
+      case 'work': {
+        if (/이번\s*주|주간/.test(args)) return { text: VacationService.workChartWeek(c, c.today).message };
+        var wd = c.today;
+        if (args) {
+          var wp = Parser.parse(args, opts);
+          if (wp.error) return { text: '⚠️ ' + wp.error, priv: true };
+          wd = wp.startDate;
+        }
+        return { text: VacationService.workChartDay(c, wd).message };
+      }
+    }
+  }
+
+  /* ── 화면 ── */
+  var chat = document.getElementById('chat');
+  var input = document.getElementById('input');
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function inline(s) {
+    return esc(s).replace(/\*([^*\n]+)\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
+  }
+  function toHtml(text) {
+    var parts = text.split('```');
+    var out = '';
+    for (var i = 0; i < parts.length; i++) {
+      if (i % 2 === 1) out += '<pre>' + esc(parts[i].replace(/^\n+|\n+$/g, '')) + '</pre>';
+      else out += inline(parts[i]);
+    }
+    return out;
+  }
+
+  function addMsg(kind, html, meta) {
+    var el = document.createElement('div');
+    el.className = 'msg ' + kind;
+    if (kind === 'bot') {
+      el.innerHTML = '<div class="mini" aria-hidden="true">🌴</div><div class="stack">' +
+        '<div class="meta">휴가봇' + (meta || '') + '</div>' +
+        '<div class="bubble' + (meta ? ' private' : '') + '">' + html + '</div></div>';
+    } else if (kind === 'user') {
+      el.innerHTML = '<div class="stack"><div class="meta">' + esc(me.name) + '</div>' +
+        '<div class="bubble">' + html + '</div></div>';
+    } else {
+      el.innerHTML = '<div class="bubble">' + html + '</div>';
+    }
+    chat.appendChild(el);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function send(text) {
+    if (!text.trim()) return;
+    addMsg('user', esc(text.trim()));
+    var res = handle(text);
+    if (res) {
+      var meta = res.priv
+        ? ' · <span class="lock">🔒 나에게만 보임</span>'
+        : '';
+      addMsg('bot', toHtml(res.text), meta);
+      if (res.priv) privNoteOnce();
+    }
+    renderRecords();
+  }
+
+  var privNoted = false;
+  function privNoteOnce() {
+    if (privNoted) return;
+    privNoted = true;
+    addMsg('system', '🔒 표시가 붙은 답장은 실제 톡방에서 본인 화면에만 보입니다 (보건휴가·조회·오류 안내)');
+  }
+
+  /* 사용자 전환 */
+  var whoChips = document.getElementById('whoChips');
+  members.forEach(function (m) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'who'; b.textContent = m.name;
+    b.setAttribute('aria-pressed', String(m === me));
+    b.addEventListener('click', function () {
+      if (me === m) return;
+      me = m; save();
+      Array.prototype.forEach.call(whoChips.children, function (c) {
+        c.setAttribute('aria-pressed', String(c.textContent === m.name));
+      });
+      addMsg('system', '이제 ' + m.name + ' 선생님으로 입력합니다');
+    });
+    whoChips.appendChild(b);
+  });
+
+  /* 예시 명령 버튼 */
+  var EXAMPLES = [
+    '휴가사용 다음주 화 10:30-15:30',
+    '휴가사용 내일 오전반차',
+    '휴가사용 내일 종일 보건휴가',
+    '휴가사용 8/3~8/5',
+    '휴가조회',
+    '휴가현황 내일',
+    '근무현황',
+    '근무현황 이번주',
+    '휴가취소 내일',
+    '휴가도움말'
+  ];
+  var chips = document.getElementById('chips');
+  EXAMPLES.forEach(function (ex) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = ex;
+    b.addEventListener('click', function () { send(ex); });
+    chips.appendChild(b);
+  });
+
+  /* 기록 시트 패널 */
+  var recSec = document.getElementById('records');
+  var recBody = document.getElementById('recBody');
+  var recBtn = document.getElementById('recBtn');
+  recBtn.addEventListener('click', function () {
+    recSec.hidden = !recSec.hidden;
+    recBtn.setAttribute('aria-expanded', String(!recSec.hidden));
+    renderRecords();
+  });
+  function renderRecords() {
+    if (recSec.hidden) return;
+    if (!records.length) {
+      recBody.innerHTML = '<p class="empty">아직 기록이 없습니다. 휴가를 등록해 보세요.</p>';
+      return;
+    }
+    var rows = records.map(function (r) {
+      return '<tr' + (r.status === '취소' ? ' class="cancelled"' : '') + '><td>' +
+        [r.name, r.type, r.ymd,
+         TimeUtil.fmtHM(r.startMin) + '-' + TimeUtil.fmtHM(r.endMin),
+         TimeUtil.fmtDuration(r.minutes), r.status].map(esc).join('</td><td>') +
+        '</td></tr>';
+    }).join('');
+    recBody.innerHTML = '<table><thead><tr><th>이름</th><th>종류</th><th>날짜</th>' +
+      '<th>시간</th><th>사용</th><th>상태</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  /* 입력 · 초기화 */
+  document.getElementById('composer').addEventListener('submit', function (e) {
+    e.preventDefault();
+    send(input.value);
+    input.value = '';
+    input.focus();
+  });
+  document.getElementById('resetBtn').addEventListener('click', function () {
+    if (!confirm('체험 데이터를 모두 지울까요?')) return;
+    records = []; nextRow = 2; me = members[0]; save();
+    Array.prototype.forEach.call(whoChips.children, function (c, i) {
+      c.setAttribute('aria-pressed', String(i === 0));
+    });
+    chat.innerHTML = '';
+    renderRecords();
+    welcome();
+  });
+
+  function welcome() {
+    addMsg('bot', toHtml(
+      '안녕하세요, 휴가봇입니다! 🌴\n' +
+      '여기는 *체험 모드*예요. 아래 버튼을 누르거나 직접 입력해 보세요.\n\n' +
+      '· 가상 직원 3명(윤지훈·김민수·이서연)이 각자 다른 시간표로 근무 중입니다\n' +
+      '· 위쪽 이름을 눌러 다른 사람 입장에서 등록해 볼 수 있어요\n' +
+      '· 📄 기록 시트 버튼으로 구글 시트에 쌓일 데이터를 미리 볼 수 있어요'
+    ), '');
+  }
+  welcome();
+  renderRecords();
+})();
+</script>
