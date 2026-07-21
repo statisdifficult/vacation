@@ -12,7 +12,6 @@ var Messages = {
       '        /휴가사용 7월28일 오전반차',
       '        /휴가사용 8/3~8/5 일반휴가',
       '        /휴가사용 내일 종일 보건휴가',
-      '        /휴가사용 7/30 보건휴가 8월분 (다음 달 몫 당겨쓰기)',
       '*/휴가취소* — 등록한 휴가 취소',
       '    예) /휴가취소 7/28',
       '*/휴가조회* — 내 잔여·예정 휴가 (본인에게만 보임)',
@@ -71,7 +70,6 @@ var Messages = {
       lines.push('남은 ' + r.label + ': ' + self.remainText(r.remainMin, o.dailyMin));
     });
     if (o.memo) lines.push('비고: ' + o.memo);
-    if (o.note) lines.push(o.note);
     if (o.skipped && o.skipped.length) lines.push('※ 제외: ' + o.skipped.join(', '));
     if (o.overBudget) lines.push('⚠️ 잔여 휴가를 초과했습니다. 관리자에게 확인을 요청해 주세요.');
     return lines.join('\n');

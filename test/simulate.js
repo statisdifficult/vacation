@@ -102,7 +102,7 @@ function handle(input) {
         r.rows.forEach(row => records.push({
           row: nextRow++, name: row[0], email: row[1], type: row[2], ymd: row[3],
           startMin: TimeUtil.parseHM(row[4]), endMin: TimeUtil.parseHM(row[5]),
-          minutes: row[6], status: row[7], chargeYm: row[9] || ''
+          minutes: row[6], status: row[7]
         }));
       }
       return { text: r.message, priv: !r.ok || r.isPrivate };

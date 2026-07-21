@@ -356,7 +356,7 @@
             records.push({
               row: nextRow++, name: row[0], email: row[1], type: row[2], ymd: row[3],
               startMin: TimeUtil.parseHM(row[4]), endMin: TimeUtil.parseHM(row[5]),
-              minutes: row[6], status: row[7], chargeYm: row[9] || ''
+              minutes: row[6], status: row[7]
             });
           });
           save();
@@ -482,7 +482,6 @@
     '휴가사용 다음주 화 10:30-15:30',
     '휴가사용 내일 오전반차',
     '휴가사용 내일 종일 보건휴가',
-    '휴가사용 모레 종일 보건휴가 다음달분',
     '휴가사용 다음주 금 생일휴가',
     '휴가사용 8/3~8/5 논문휴가',
     '휴가조회',

@@ -78,7 +78,14 @@ var VacationService = (function () {
       };
     }
     if (cycle === 'month') {
-      return monthBudget(unit, typeInfo.name, y, m + 1, '월');
+      var last = new Date(y, m + 1, 0).getDate();
+      return {
+        key: y + '-' + pad2(m + 1),
+        label: typeInfo.name + '(' + (m + 1) + '월)',
+        allocMin: unit,
+        from: y + '-' + pad2(m + 1) + '-01',
+        to: y + '-' + pad2(m + 1) + '-' + pad2(last)
+      };
     }
     if (cycle === 'birthmonth') {
       if (!member.birthMonth) {
@@ -110,41 +117,14 @@ var VacationService = (function () {
     return { key: String(y), label: typeInfo.name, allocMin: unit, from: y + '-01-01', to: y + '-12-31' };
   }
 
-  function monthBudget(unit, typeName, y, m1based, suffix) {
-    var last = new Date(y, m1based, 0).getDate();
-    return {
-      key: y + '-' + pad2(m1based),
-      label: typeName + '(' + m1based + suffix + ')',
-      allocMin: unit,
-      from: y + '-' + pad2(m1based) + '-01',
-      to: y + '-' + pad2(m1based) + '-' + pad2(last)
-    };
-  }
-
-  /** "N월분" 당겨쓰기의 귀속 연도: 휴가일과 가장 가까운 해로 해석 (12월에 1월분 → 내년 1월) */
-  function resolveChargeYear(date, chargeMonth) {
-    var y = date.getFullYear(), cur = y * 12 + date.getMonth();
-    var best = null;
-    [y - 1, y, y + 1].forEach(function (cy) {
-      var idx = cy * 12 + (chargeMonth - 1);
-      var dist = Math.abs(idx - cur);
-      if (!best || dist < best.dist || (dist === best.dist && idx > best.idx)) {
-        best = { y: cy, idx: idx, dist: dist };
-      }
-    });
-    return best.y;
-  }
-
-  /**
-   * 구간 내 사용 분(상태=등록).
-   * 다른 달로 귀속된 기록(chargeYm)은 휴가일이 아니라 귀속 달 예산에서 차감된다.
-   */
+  /** 구간 내 사용 분(상태=등록) */
   function usedBetween(ctx, email, typeName, fromYmd, toYmd) {
     var sum = 0;
     ctx.records.forEach(function (r) {
-      if (r.status !== '등록' || r.email !== email || r.type !== typeName) return;
-      var eff = r.chargeYm ? r.chargeYm + '-15' : r.ymd;
-      if (eff >= fromYmd && eff <= toYmd) sum += r.minutes;
+      if (r.status === '등록' && r.email === email && r.type === typeName &&
+          r.ymd >= fromYmd && r.ymd <= toYmd) {
+        sum += r.minutes;
+      }
     });
     return sum;
   }
@@ -190,21 +170,7 @@ var VacationService = (function () {
         var sched = scheduleFor(ctx, member.name, d);
         if (!sched) { skipped.push(kd + ' 휴무일'); continue; }
 
-        var budget;
-        var unit = unitAllocOf(member, typeInfo);
-        if (parsed.chargeMonth && (typeInfo.cycle || 'year') === 'month' && unit > 0) {
-          // "8월분" 당겨쓰기: 휴가일은 그대로, 예산만 지정한 달에서 차감
-          var cMonth = parsed.chargeMonth === 'NEXT'
-            ? (d.getMonth() + 2 > 12 ? 1 : d.getMonth() + 2)
-            : parsed.chargeMonth;
-          var cYear = parsed.chargeMonth === 'NEXT' && d.getMonth() === 11
-            ? d.getFullYear() + 1
-            : resolveChargeYear(d, cMonth);
-          budget = monthBudget(unit, typeInfo.name, cYear, cMonth, '월분');
-          budget.chargeYm = cYear + '-' + pad2(cMonth);
-        } else {
-          budget = budgetFor(ctx, member, typeInfo, d);
-        }
+        var budget = budgetFor(ctx, member, typeInfo, d);
         if (budget && budget.invalid) {
           if (invalidReasons.indexOf(budget.invalid) === -1) invalidReasons.push(budget.invalid);
           skipped.push(kd + ' 사용 불가');
@@ -267,19 +233,14 @@ var VacationService = (function () {
 
       var rows = items.map(function (it) {
         return [member.name, member.email, typeName, it.ymd,
-                TimeUtil.fmtHM(it.s), TimeUtil.fmtHM(it.e), it.min, '등록', parsed.memo || '',
-                (it.budget && it.budget.chargeYm) || ''];
+                TimeUtil.fmtHM(it.s), TimeUtil.fmtHM(it.e), it.min, '등록', parsed.memo || ''];
       });
 
-      var note = '';
-      if (parsed.chargeMonth && (typeInfo.cycle || 'year') !== 'month') {
-        note = '※ 월분 지정(당겨쓰기)은 월 단위 지급 휴가에만 적용됩니다.';
-      }
       var message = Messages.registered({
         name: member.name, honorific: ctx.settings.honorific, typeName: typeName,
         items: items, totalMin: totalMin, remains: remains,
         dailyMin: ctx.settings.defaultDailyMin, skipped: skipped,
-        overBudget: overBudget, memo: parsed.memo, note: note
+        overBudget: overBudget, memo: parsed.memo
       });
       return { ok: true, rows: rows, message: message, isPrivate: !typeInfo.isPublic };
     },
@@ -318,14 +279,11 @@ var VacationService = (function () {
         var ti = typeOf(ctx, t);
         if (!ti) return;
         var first = byType[t][0];
-        // 당겨쓰기 기록은 귀속된 달 예산으로 되돌린다
-        var refDate = first.chargeYm ? DateUtil.fromYmd(first.chargeYm + '-15') : DateUtil.fromYmd(first.ymd);
-        var b = budgetFor(ctx, member, ti, refDate);
+        var b = budgetFor(ctx, member, ti, DateUtil.fromYmd(first.ymd));
         if (!b || b.invalid) return;
         var used = usedBetween(ctx, member.email, t, b.from, b.to);
         var canceledIn = byType[t].filter(function (r) {
-          var eff = r.chargeYm ? r.chargeYm + '-15' : r.ymd;
-          return eff >= b.from && eff <= b.to;
+          return r.ymd >= b.from && r.ymd <= b.to;
         }).reduce(function (a, r) { return a + r.minutes; }, 0);
         remains.push({ label: b.label, remainMin: b.allocMin - used + canceledIn });
       });

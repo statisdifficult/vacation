@@ -177,13 +177,7 @@ var SheetRepo = (function () {
         startMin: cellToMin(r[5]) || 0,
         endMin: cellToMin(r[6]) || 0,
         minutes: Number(r[7]) || 0,
-        status: String(r[8] || '').trim(),
-        chargeYm: (function (v) {
-          if (v == null || v === '') return '';
-          if (v instanceof Date) return DateUtil.ymd(v).slice(0, 7);
-          var mm = String(v).trim().match(/^(\d{4})[-./](\d{1,2})/);
-          return mm ? mm[1] + '-' + (mm[2].length < 2 ? '0' : '') + mm[2] : '';
-        })(r[10])
+        status: String(r[8] || '').trim()
       };
     }).filter(function (r) { return r.ymd; });
   }
@@ -218,7 +212,7 @@ var SheetRepo = (function () {
       };
     },
 
-    /** rows: [이름, 이메일, 종류, 날짜, 시작, 종료, 분, 상태, 비고, 귀속월] — 등록일시는 여기서 붙인다 */
+    /** rows: [이름, 이메일, 종류, 날짜, 시작, 종료, 분, 상태, 비고] — 등록일시는 여기서 붙인다 */
     appendRecords: function (rows) {
       var sh = sheet(SHEET.records);
       var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
