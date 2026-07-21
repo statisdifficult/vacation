@@ -88,6 +88,14 @@ test('상대 날짜', () => {
   assert.strictEqual(DateUtil.ymd(Parser.parse('다음주 월', OPTS).startDate), '2026-07-27');
   assert.strictEqual(DateUtil.ymd(Parser.parse('이번주 금요일', OPTS).startDate), '2026-07-24');
 });
+test('요일 기간: 다음주 월~금', () => {
+  const p = Parser.parse('다음주 월~금', OPTS);
+  assert.strictEqual(DateUtil.ymd(p.startDate), '2026-07-27');
+  assert.strictEqual(DateUtil.ymd(p.endDate), '2026-07-31');
+  const p2 = Parser.parse('다음주 월~다음주 수 일반휴가', OPTS);
+  assert.strictEqual(DateUtil.ymd(p2.endDate), '2026-07-29');
+  assert.strictEqual(p2.type, '일반휴가');
+});
 test('지난 날짜는 내년으로 해석', () => {
   assert.strictEqual(DateUtil.ymd(Parser.parse('1/5', OPTS).startDate), '2027-01-05');
 });
@@ -158,6 +166,28 @@ test('시간표 기반 종일 등록', () => {
   const ctx = makeCtx({ schedule: { 윤지훈: { 2: { start: 600, end: 900 } } } }); // 화요일만 10:00-15:00
   const r = VacationService.register(ctx, Parser.parse('7/28 종일', OPTS)); // 7/28은 화요일
   assert.strictEqual(r.rows[0][6], 240); // 5h - 점심 1h
+});
+test('시간표 기반: 근무 요일이 아니면 거절', () => {
+  const ctx = makeCtx({ schedule: { 윤지훈: { 1: { start: 600, end: 900 }, 3: { start: 600, end: 900 }, 5: { start: 600, end: 900 } } } });
+  const r = VacationService.register(ctx, Parser.parse('7/28 종일', OPTS)); // 화요일 = 휴무
+  assert.strictEqual(r.ok, false);
+  assert.ok(r.message.includes('휴무일'));
+});
+test('시간표 기반: 기간 등록 시 휴무 요일 자동 제외', () => {
+  // 월·수·금만 근무 → 월~금 등록해도 3일만 등록
+  const ctx = makeCtx({ schedule: { 윤지훈: { 1: { start: 600, end: 900 }, 3: { start: 600, end: 900 }, 5: { start: 600, end: 900 } } } });
+  const r = VacationService.register(ctx, Parser.parse('다음주 월~금', OPTS));
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.rows.length, 3);
+  assert.deepStrictEqual(r.rows.map(x => x[3]), ['2026-07-27', '2026-07-29', '2026-07-31']);
+  assert.strictEqual(r.rows[0][6], 240); // 종일 = 그 사람 시간표(10:00-15:00) 기준 4h
+});
+test('시간표 기반: 반차는 그날 시간표의 절반', () => {
+  const ctx = makeCtx({ schedule: { 윤지훈: { 2: { start: 600, end: 900 } } } }); // 화 10:00-15:00
+  const am = VacationService.register(ctx, Parser.parse('7/28 오전반차', OPTS));
+  assert.strictEqual(am.rows[0][4], '10:00');
+  assert.strictEqual(am.rows[0][5], '12:30');
+  assert.strictEqual(am.rows[0][6], 150); // 2.5h (점심 안 겹침)
 });
 test('기간 등록: 주말·공휴일 자동 제외', () => {
   const r = VacationService.register(makeCtx(), Parser.parse('8/14~8/17', OPTS));

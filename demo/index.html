@@ -607,6 +607,12 @@ var Parser = (function () {
       var text = String(raw || '').replace(/\s*[~〜]\s*/g, '~').trim();
       if (!text) return { error: '내용을 입력해 주세요.' };
 
+      // "다음주 월~금", "다음주 월~다음주 금" 같은 요일 기간을 한 토큰으로 정규화
+      text = text.replace(
+        /(이번주|다음주|다다음주)\s*(일|월|화|수|목|금|토)(?:요일)?~(?:(이번주|다음주|다다음주)\s*)?(일|월|화|수|목|금|토)(?:요일)?(?=\s|$)/g,
+        function (_, w1, d1, w2, d2) { return w1 + d1 + '~' + (w2 || w1) + d2; }
+      );
+
       var tokens = joinTokens(text.split(/\s+/));
       var res = {
         startDate: null, endDate: null, startMin: null, endMin: null,
