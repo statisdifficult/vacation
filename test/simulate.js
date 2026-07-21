@@ -18,21 +18,22 @@ for (const f of ['Util.js', 'Messages.js', 'Parser.js', 'Chart.js', 'VacationSer
 
 // ── 가상의 시트 데이터 (setupSheets()가 만드는 구조와 동일) ──────────────
 const types = [
-  { name: '일반휴가', allocMin: 108 * 60, isPublic: true },
-  { name: '보건휴가', allocMin: 96 * 60, isPublic: false },
-  { name: '논문휴가', allocMin: 40 * 60, isPublic: true },
-  { name: '생일휴가', allocMin: 8 * 60, isPublic: true },
-  { name: '반기휴가', allocMin: 16 * 60, isPublic: true },
-  { name: '병가', allocMin: 0, isPublic: true },
-  { name: '특별휴가', allocMin: 0, isPublic: true }
+  { name: '일반휴가', allocMin: 108 * 60, isPublic: true, cycle: 'year', carryover: true },
+  { name: '보건휴가', allocMin: 8 * 60, isPublic: false, cycle: 'month' },
+  { name: '논문휴가', allocMin: 40 * 60, isPublic: true, cycle: 'year' },
+  { name: '생일휴가', allocMin: 8 * 60, isPublic: true, cycle: 'birthmonth' },
+  { name: '반기휴가', allocMin: 24 * 60, isPublic: true, cycle: 'half' },
+  { name: '병가', allocMin: 0, isPublic: true, cycle: 'year' },
+  { name: '특별휴가', allocMin: 0, isPublic: true, cycle: 'year' }
 ];
 const alloc = {};
 types.forEach(t => { alloc[t.name] = t.allocMin; });
 
+const thisMonth = new Date().getMonth() + 1;
 const members = [
-  { name: '윤지훈', email: 'yoon2839@chilab.kr', alloc },
-  { name: '김민수', email: 'kim@chilab.kr', alloc },
-  { name: '이서연', email: 'lee@chilab.kr', alloc }
+  { name: '윤지훈', email: 'yoon2839@chilab.kr', birthMonth: thisMonth, alloc },
+  { name: '김민수', email: 'kim@chilab.kr', birthMonth: (thisMonth % 12) + 1, alloc },
+  { name: '이서연', email: 'lee@chilab.kr', birthMonth: null, alloc }
 ];
 
 // 요일: 0=일 … 6=토. 이서연은 월·수·금만 근무하는 예시

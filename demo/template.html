@@ -268,21 +268,23 @@
   'use strict';
 
   var types = [
-    { name: '일반휴가', allocMin: 108 * 60, isPublic: true },
-    { name: '보건휴가', allocMin: 96 * 60, isPublic: false },
-    { name: '논문휴가', allocMin: 40 * 60, isPublic: true },
-    { name: '생일휴가', allocMin: 8 * 60, isPublic: true },
-    { name: '반기휴가', allocMin: 16 * 60, isPublic: true },
-    { name: '병가', allocMin: 0, isPublic: true },
-    { name: '특별휴가', allocMin: 0, isPublic: true }
+    { name: '일반휴가', allocMin: 108 * 60, isPublic: true, cycle: 'year', carryover: true },
+    { name: '보건휴가', allocMin: 8 * 60, isPublic: false, cycle: 'month' },
+    { name: '논문휴가', allocMin: 40 * 60, isPublic: true, cycle: 'year' },
+    { name: '생일휴가', allocMin: 8 * 60, isPublic: true, cycle: 'birthmonth' },
+    { name: '반기휴가', allocMin: 24 * 60, isPublic: true, cycle: 'half' },
+    { name: '병가', allocMin: 0, isPublic: true, cycle: 'year' },
+    { name: '특별휴가', allocMin: 0, isPublic: true, cycle: 'year' }
   ];
   var alloc = {};
   types.forEach(function (t) { alloc[t.name] = t.allocMin; });
 
+  var thisMonth = new Date().getMonth() + 1;
   var members = [
-    { name: '윤지훈', email: 'yoon@demo.kr', alloc: alloc },
-    { name: '김민수', email: 'kim@demo.kr', alloc: alloc },
-    { name: '이서연', email: 'lee@demo.kr', alloc: alloc }
+    // 윤지훈은 이번 달이 생일이라 생일휴가를 바로 실험해 볼 수 있다
+    { name: '윤지훈', email: 'yoon@demo.kr', birthMonth: thisMonth, alloc: alloc },
+    { name: '김민수', email: 'kim@demo.kr', birthMonth: (thisMonth % 12) + 1, alloc: alloc },
+    { name: '이서연', email: 'lee@demo.kr', birthMonth: null, alloc: alloc }
   ];
 
   function hm(a, b) { return { start: TimeUtil.parseHM(a), end: TimeUtil.parseHM(b) }; }

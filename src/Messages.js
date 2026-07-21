@@ -37,8 +37,9 @@ var Messages = {
       '관리자에게 명단 시트에 이메일(' + (email || '알 수 없음') + ') 등록을 요청해 주세요.';
   },
 
-  /** 잔여 표시: "104시간 (하루 8시간 기준 13일)" */
+  /** 잔여 표시: "104시간 (하루 8시간 기준 13일)", 음수면 "8시간 초과" */
   remainText: function (remainMin, dailyMin) {
+    if (remainMin < 0) return TimeUtil.fmtDuration(-remainMin) + ' 초과 ⚠️';
     var t = TimeUtil.fmtDuration(remainMin);
     if (dailyMin > 0) {
       var days = Math.round((remainMin / dailyMin) * 10) / 10;
@@ -48,8 +49,9 @@ var Messages = {
   },
 
   registered: function (o) {
-    // o: { name, honorific, typeName, items, totalMin, remainMin(null 가능),
+    // o: { name, honorific, typeName, items, totalMin, remains:[{label,remainMin}],
     //      dailyMin, skipped, overBudget, memo }
+    var self = this;
     var lines = [];
     var who = o.name + ' ' + o.honorific;
 
@@ -64,9 +66,9 @@ var Messages = {
       });
       lines.push('합계 ' + TimeUtil.fmtDuration(o.totalMin));
     }
-    if (o.remainMin != null) {
-      lines.push('남은 ' + o.typeName + ': ' + this.remainText(o.remainMin, o.dailyMin));
-    }
+    (o.remains || []).forEach(function (r) {
+      lines.push('남은 ' + r.label + ': ' + self.remainText(r.remainMin, o.dailyMin));
+    });
     if (o.memo) lines.push('비고: ' + o.memo);
     if (o.skipped && o.skipped.length) lines.push('※ 제외: ' + o.skipped.join(', '));
     if (o.overBudget) lines.push('⚠️ 잔여 휴가를 초과했습니다. 관리자에게 확인을 요청해 주세요.');
@@ -74,7 +76,7 @@ var Messages = {
   },
 
   canceled: function (o) {
-    // o: { name, honorific, items:[{kdate,timeText,typeName,min}], remains:[{typeName,remainMin}], dailyMin }
+    // o: { name, honorific, items:[{kdate,timeText,typeName,min}], remains:[{label,remainMin}], dailyMin }
     var self = this;
     var lines = [o.name + ' ' + o.honorific + ', 아래 휴가가 취소되었습니다.'];
     o.items.forEach(function (it) {
@@ -82,7 +84,7 @@ var Messages = {
         ' (' + TimeUtil.fmtDuration(it.min) + ')');
     });
     o.remains.forEach(function (r) {
-      lines.push('남은 ' + r.typeName + ': ' + self.remainText(r.remainMin, o.dailyMin));
+      lines.push('남은 ' + r.label + ': ' + self.remainText(r.remainMin, o.dailyMin));
     });
     return lines.join('\n');
   },

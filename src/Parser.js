@@ -71,7 +71,8 @@ var Parser = (function () {
   }
 
   function matchType(tok, typeNames, aliases) {
-    var t = aliases && aliases[tok] ? aliases[tok] : tok;
+    // 별칭은 대상 종류가 실제로 있을 때만 적용 (예: 종류를 '연차'로 개명한 시트도 동작)
+    var t = (aliases && aliases[tok] && typeNames.indexOf(aliases[tok]) !== -1) ? aliases[tok] : tok;
     for (var i = 0; i < typeNames.length; i++) {
       if (typeNames[i] === t) return typeNames[i];
     }

@@ -110,22 +110,28 @@ test('시간 역순이면 오류', () => {
 
 console.log('VacationService');
 function makeCtx(overrides) {
-  const alloc = { 일반휴가: 108 * 60, 보건휴가: 96 * 60, 병가: 0, 특별휴가: 0 };
+  const alloc = {
+    일반휴가: 108 * 60, 보건휴가: 8 * 60, 논문휴가: 40 * 60,
+    생일휴가: 8 * 60, 반기휴가: 24 * 60, 병가: 0, 특별휴가: 0
+  };
   const base = {
-    member: { name: '윤지훈', email: 'yoon2839@chilab.kr', alloc },
+    member: { name: '윤지훈', email: 'yoon2839@chilab.kr', birthMonth: 7, alloc },
     members: [
-      { name: '윤지훈', email: 'yoon2839@chilab.kr', alloc },
-      { name: '김민수', email: 'kim@chilab.kr', alloc }
+      { name: '윤지훈', email: 'yoon2839@chilab.kr', birthMonth: 7, alloc },
+      { name: '김민수', email: 'kim@chilab.kr', birthMonth: 11, alloc }
     ],
     types: [
-      { name: '일반휴가', allocMin: 108 * 60, isPublic: true },
-      { name: '보건휴가', allocMin: 96 * 60, isPublic: false },
-      { name: '병가', allocMin: 0, isPublic: true },
-      { name: '특별휴가', allocMin: 0, isPublic: true }
+      { name: '일반휴가', allocMin: 108 * 60, isPublic: true, cycle: 'year', carryover: true },
+      { name: '보건휴가', allocMin: 8 * 60, isPublic: false, cycle: 'month' },
+      { name: '논문휴가', allocMin: 40 * 60, isPublic: true, cycle: 'year' },
+      { name: '생일휴가', allocMin: 8 * 60, isPublic: true, cycle: 'birthmonth' },
+      { name: '반기휴가', allocMin: 24 * 60, isPublic: true, cycle: 'half' },
+      { name: '병가', allocMin: 0, isPublic: true, cycle: 'year' },
+      { name: '특별휴가', allocMin: 0, isPublic: true, cycle: 'year' }
     ],
     settings: {
       workStart: 600, workEnd: 1140, lunchStart: 780, lunchEnd: 840,
-      lunchExcluded: true, defaultDailyMin: 480, honorific: '선생님'
+      lunchExcluded: true, defaultDailyMin: 480, honorific: '선생님', baseYear: null
     },
     schedule: {},
     holidays: { '2026-08-17': '대체공휴일' },
@@ -245,11 +251,60 @@ test('관리자 전체 잔여 표', () => {
   });
   const a = VacationService.adminSummary(ctx);
   assert.strictEqual(a.isPrivate, true);
-  assert.deepStrictEqual(a.typeNames, ['일반휴가', '보건휴가']); // 부여 0인 병가·특별휴가 제외
+  // 부여 0인 병가·특별휴가 제외
+  assert.deepStrictEqual(a.typeNames, ['일반휴가', '보건휴가', '논문휴가', '생일휴가', '반기휴가']);
   assert.ok(a.message.includes('윤지훈'));
   assert.ok(a.message.includes('김민수'));
   assert.ok(a.message.includes('104/108h')); // 108h - 4h 사용
-  assert.ok(a.message.includes('96/96h'));   // 보건휴가 미사용
+  assert.ok(a.message.includes('8/8h'));     // 보건휴가(월간) 미사용
+});
+test('반기휴가: 상·하반기 예산이 분리됨', () => {
+  const ctx = makeCtx({
+    records: [{ row: 2, name: '윤지훈', email: 'yoon2839@chilab.kr', type: '반기휴가',
+                ymd: '2026-03-02', startMin: 600, endMin: 1140, minutes: 480, status: '등록' }]
+  });
+  // 상반기에 8h를 썼어도 하반기 예산은 24h 그대로
+  const r = VacationService.register(ctx, Parser.parse('12/21 종일 반기휴가', OPTS));
+  assert.strictEqual(r.ok, true);
+  assert.ok(r.message.includes('반기휴가(하반기)'));
+  assert.ok(r.message.includes('16시간')); // 24h - 8h
+});
+test('생일휴가: 생일 달에만 사용 가능', () => {
+  const ok = VacationService.register(makeCtx(), Parser.parse('7/28 생일휴가', OPTS)); // 생일 7월
+  assert.strictEqual(ok.ok, true);
+  assert.ok(ok.message.includes('생일휴가(7월)'));
+
+  const wrong = VacationService.register(makeCtx(), Parser.parse('8/3 생일휴가', OPTS));
+  assert.strictEqual(wrong.ok, false);
+  assert.ok(wrong.message.includes('7월에만'));
+
+  const noBirth = makeCtx();
+  noBirth.member = Object.assign({}, noBirth.member, { birthMonth: null });
+  const nb = VacationService.register(noBirth, Parser.parse('7/28 생일휴가', OPTS));
+  assert.strictEqual(nb.ok, false);
+  assert.ok(nb.message.includes('생일을 등록'));
+});
+test('보건휴가: 매달 8h, 달이 바뀌면 새 예산', () => {
+  const ctx = makeCtx({
+    records: [{ row: 2, name: '윤지훈', email: 'yoon2839@chilab.kr', type: '보건휴가',
+                ymd: '2026-07-01', startMin: 600, endMin: 1140, minutes: 480, status: '등록' }]
+  });
+  const july = VacationService.register(ctx, Parser.parse('7/28 종일 보건휴가', OPTS));
+  assert.strictEqual(july.ok, true); // 등록은 되지만 초과 경고
+  assert.ok(july.message.includes('초과'));
+
+  const aug = VacationService.register(ctx, Parser.parse('8/3 종일 보건휴가', OPTS));
+  assert.strictEqual(aug.ok, true);
+  assert.ok(aug.message.includes('보건휴가(8월)'));
+  assert.ok(!aug.message.includes('초과'));
+});
+test('일반휴가: 기준연도부터 이월 누적', () => {
+  const ctx = makeCtx();
+  ctx.settings = Object.assign({}, ctx.settings, { baseYear: 2025 });
+  const r = VacationService.register(ctx, Parser.parse('7/28 10:30-15:30', OPTS));
+  assert.strictEqual(r.ok, true);
+  assert.ok(r.message.includes('이월 포함'));
+  assert.ok(r.message.includes('212시간')); // 108h×2년 - 4h
 });
 test('주간 그래프', () => {
   const c = VacationService.workChartWeek(makeCtx(), TODAY);

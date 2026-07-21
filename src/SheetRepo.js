@@ -68,9 +68,12 @@ var SheetRepo = (function () {
       honorific: String(map['호칭'] || '선생님').trim(),
       noticeHour: Number(map['공지시간']) || 8,
       webhookUrl: String(map['웹훅URL'] || '').trim(),
-      adminEmails: String(map['관리자'] || '').toLowerCase().split(/[,;\s]+/).filter(Boolean)
+      adminEmails: String(map['관리자'] || '').toLowerCase().split(/[,;\s]+/).filter(Boolean),
+      baseYear: Number(map['기준연도']) || null
     };
   }
+
+  var CYCLE_MAP = { '연간': 'year', '반기': 'half', '월간': 'month', '매월': 'month', '생일월': 'birthmonth', '생일': 'birthmonth' };
 
   function getTypes() {
     return values(SHEET.types)
@@ -79,9 +82,24 @@ var SheetRepo = (function () {
         return {
           name: String(r[0]).trim(),
           allocMin: Math.round((Number(r[1]) || 0) * 60),
-          isPublic: String(r[2] == null ? '공개' : r[2]).trim() !== '비공개'
+          isPublic: String(r[2] == null ? '공개' : r[2]).trim() !== '비공개',
+          cycle: CYCLE_MAP[String(r[3] == null ? '' : r[3]).trim()] || 'year',
+          carryover: /^(TRUE|O|Y|이월|예)$/i.test(String(r[4] == null ? '' : r[4]).trim())
         };
       });
+  }
+
+  /** 생일 셀(Date/"7/28"/"1998-07-28"/"7월28일"/숫자 7) → 월(1~12) */
+  function parseBirthMonth(v) {
+    if (v == null || v === '') return null;
+    if (v instanceof Date) return v.getMonth() + 1;
+    if (typeof v === 'number') return (v >= 1 && v <= 12) ? Math.round(v) : null;
+    var s = String(v).trim();
+    var m = s.match(/^(\d{4})[-./](\d{1,2})/);
+    if (m) return +m[2];
+    m = s.match(/^(\d{1,2})\s*[-./월]/) || s.match(/^(\d{1,2})$/);
+    if (m && +m[1] >= 1 && +m[1] <= 12) return +m[1];
+    return null;
   }
 
   function getMembers(types) {
@@ -92,6 +110,11 @@ var SheetRepo = (function () {
     var rows = sh.getRange(2, 1, last - 1, sh.getLastColumn()).getValues();
     var typeNames = types.map(function (t) { return t.name; });
 
+    var birthIdx = -1;
+    header.forEach(function (h, i) {
+      if (h.replace(/\(.*\)$/, '').trim() === '생일') birthIdx = i;
+    });
+
     return rows.filter(function (r) { return r[0]; }).map(function (r) {
       var alloc = {};
       types.forEach(function (t) { alloc[t.name] = t.allocMin; });
@@ -101,7 +124,12 @@ var SheetRepo = (function () {
           alloc[name] = Math.round(Number(r[i]) * 60);
         }
       });
-      return { name: String(r[0]).trim(), email: String(r[1] || '').trim().toLowerCase(), alloc: alloc };
+      return {
+        name: String(r[0]).trim(),
+        email: String(r[1] || '').trim().toLowerCase(),
+        birthMonth: birthIdx === -1 ? null : parseBirthMonth(r[birthIdx]),
+        alloc: alloc
+      };
     });
   }
 
