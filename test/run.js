@@ -26,7 +26,7 @@ function test(name, fn) {
 }
 
 const TODAY = new Date(2026, 6, 20); // 2026-07-20 (월)
-const TYPES = ['일반휴가', '보건휴가', '병가', '특별휴가'];
+const TYPES = ['일반휴가', '보건휴가', '논문휴가', '생일휴가', '반기휴가', '병가', '특별휴가'];
 const OPTS = { today: TODAY, typeNames: TYPES };
 
 console.log('TimeUtil');
@@ -94,6 +94,9 @@ test('지난 날짜는 내년으로 해석', () => {
 test('종류 접미사 생략', () => {
   assert.strictEqual(Parser.parse('내일 보건', OPTS).type, '보건휴가');
   assert.strictEqual(Parser.parse('내일 병가', OPTS).type, '병가');
+  assert.strictEqual(Parser.parse('내일 논문', OPTS).type, '논문휴가');
+  assert.strictEqual(Parser.parse('내일 생일휴가', OPTS).type, '생일휴가');
+  assert.strictEqual(Parser.parse('내일 반기', OPTS).type, '반기휴가');
 });
 test('알 수 없는 토큰은 비고로', () => {
   assert.strictEqual(Parser.parse('내일 병원진료 일반휴가', OPTS).memo, '병원진료');

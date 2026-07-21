@@ -20,6 +20,9 @@ for (const f of ['Util.js', 'Messages.js', 'Parser.js', 'Chart.js', 'VacationSer
 const types = [
   { name: '일반휴가', allocMin: 108 * 60, isPublic: true },
   { name: '보건휴가', allocMin: 96 * 60, isPublic: false },
+  { name: '논문휴가', allocMin: 40 * 60, isPublic: true },
+  { name: '생일휴가', allocMin: 8 * 60, isPublic: true },
+  { name: '반기휴가', allocMin: 16 * 60, isPublic: true },
   { name: '병가', allocMin: 0, isPublic: true },
   { name: '특별휴가', allocMin: 0, isPublic: true }
 ];
