@@ -298,6 +298,46 @@ test('보건휴가: 매달 8h, 달이 바뀌면 새 예산', () => {
   assert.ok(aug.message.includes('보건휴가(8월)'));
   assert.ok(!aug.message.includes('초과'));
 });
+test('보건휴가 당겨쓰기: "8월분"은 8월 예산에서 차감', () => {
+  assert.strictEqual(Parser.parse('7/30 보건휴가 8월분', OPTS).chargeMonth, 8);
+
+  // 7월 몫을 다 쓴 상태에서 8월분으로 당겨쓰면 초과가 아니다
+  const ctx = makeCtx({
+    records: [{ row: 2, name: '윤지훈', email: 'yoon2839@chilab.kr', type: '보건휴가',
+                ymd: '2026-07-01', startMin: 600, endMin: 1140, minutes: 480, status: '등록' }]
+  });
+  const r = VacationService.register(ctx, Parser.parse('7/30 종일 보건휴가 8월분', OPTS));
+  assert.strictEqual(r.ok, true);
+  assert.ok(r.message.includes('보건휴가(8월분)'));
+  assert.ok(!r.message.includes('초과'));
+  assert.strictEqual(r.rows[0][9], '2026-08'); // 귀속월 기록
+
+  // 당겨쓴 기록이 있으면 8월 예산은 소진, 7월 예산에는 영향 없음
+  const ctx2 = makeCtx({
+    records: [{ row: 2, name: '윤지훈', email: 'yoon2839@chilab.kr', type: '보건휴가',
+                ymd: '2026-07-30', startMin: 600, endMin: 1140, minutes: 480,
+                status: '등록', chargeYm: '2026-08' }]
+  });
+  const aug = VacationService.register(ctx2, Parser.parse('8/3 종일 보건휴가', OPTS));
+  assert.ok(aug.message.includes('초과'));
+  const july = VacationService.register(ctx2, Parser.parse('7/28 종일 보건휴가', OPTS));
+  assert.ok(!july.message.includes('초과'));
+
+  // 12월에 "다음달분" → 내년 1월 귀속
+  const dec = VacationService.register(makeCtx(), Parser.parse('12/21 종일 보건휴가 다음달분', OPTS));
+  assert.strictEqual(dec.rows[0][9], '2027-01');
+});
+test('당겨쓴 휴가 취소 시 귀속 달 예산으로 복구', () => {
+  const ctx = makeCtx({
+    records: [{ row: 5, name: '윤지훈', email: 'yoon2839@chilab.kr', type: '보건휴가',
+                ymd: '2026-07-30', startMin: 600, endMin: 1140, minutes: 480,
+                status: '등록', chargeYm: '2026-08' }]
+  });
+  const r = VacationService.cancel(ctx, Parser.parse('7/30', OPTS));
+  assert.strictEqual(r.ok, true);
+  assert.ok(r.message.includes('보건휴가(8월)'));
+  assert.ok(r.message.includes('8시간')); // 8월 예산이 8h로 복구
+});
 test('일반휴가: 기준연도부터 이월 누적', () => {
   const ctx = makeCtx();
   ctx.settings = Object.assign({}, ctx.settings, { baseYear: 2025 });

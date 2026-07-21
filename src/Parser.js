@@ -110,7 +110,7 @@ var Parser = (function () {
       var tokens = joinTokens(text.split(/\s+/));
       var res = {
         startDate: null, endDate: null, startMin: null, endMin: null,
-        halfDay: null, allDay: false, type: null, memo: ''
+        halfDay: null, allDay: false, type: null, chargeMonth: null, memo: ''
       };
       var memo = [], halfAmbiguous = false;
 
@@ -121,6 +121,11 @@ var Parser = (function () {
         if (tok === '오후반차') { res.halfDay = 'PM'; continue; }
         if (tok === '반차') { halfAmbiguous = true; continue; }
         if (tok === '종일' || tok === '하루' || tok === '하루종일' || tok === '전일') { res.allDay = true; continue; }
+
+        // 월 단위 지급 휴가의 당겨쓰기: "8월분" = 8월 몫에서 차감
+        var cm = tok.match(/^(\d{1,2})월분$/);
+        if (cm && +cm[1] >= 1 && +cm[1] <= 12) { res.chargeMonth = +cm[1]; continue; }
+        if (tok === '다음달분' || tok === '다음달몫') { res.chargeMonth = 'NEXT'; continue; }
 
         var d = parseDateToken(tok, today);
         if (d) {
