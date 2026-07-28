@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: #eef3f0; --panel: #ffffff; --panel-2: #f5f8f6; --ink: #1c2622;
+    --muted: #5c6d65; --line: #dbe4df; --accent: #0e7a5f; --accent-ink: #fff;
+    --work: #d9efe4; --vac-bg: #f1edfa; --vac: #6f56b0; --danger: #b3543f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1412; --panel: #161d1a; --panel-2: #1b2420; --ink: #e6ece9;
+      --muted: #92a29a; --line: #263029; --accent: #4cc39a; --accent-ink: #0b241c;
+      --work: #1f3a30; --vac-bg: #251d38; --vac: #b7a0ea; --danger: #e08a76;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 18px 16px 60px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+  .logo {
+    width: 40px; height: 40px; display: grid; place-items: center;
+    background: var(--accent); color: var(--accent-ink); border-radius: 11px; font-size: 21px;
+  }
+  h1 { font-size: 18px; margin: 0; }
+  .sub { font-size: 12px; color: var(--muted); }
+  header .grow { flex: 1; }
+  h2 { font-size: 15px; margin: 26px 0 8px; }
+  .note { font-size: 12px; color: var(--muted); margin: 0 0 10px; max-width: 64ch; }
+
+  button {
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    border-radius: 8px; padding: 7px 12px; font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  button.primary {
+    background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700;
+  }
+  button:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 1px;
+  }
+  input, select {
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    border-radius: 8px; padding: 7px 10px; font-size: 13px; font-family: inherit;
+  }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .scroll { overflow-x: auto; }
+  table {
+    border-collapse: collapse; width: 100%; font-size: 13px;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: center; font-weight: 400; }
+  th { background: var(--panel-2); color: var(--muted); font-size: 12px; }
+  td.name { background: var(--panel-2); font-weight: 700; text-align: left; }
+  td.work { background: var(--work); }
+  td.vac { background: var(--vac-bg); color: var(--vac); font-weight: 700; }
+  td.lunch { background: repeating-linear-gradient(135deg, var(--line) 0 3px, var(--panel) 3px 9px); }
+  td.off { color: var(--muted); }
+  td.hol { color: var(--danger); }
+  .legend { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .legend i {
+    display: inline-block; width: 12px; height: 12px; border-radius: 3px;
+    vertical-align: -1px; margin: 0 4px 0 10px; border: 1px solid var(--line);
+  }
+  .nav { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .nav b { flex: 1; text-align: center; font-size: 13px; }
+
+  .meter { height: 8px; min-width: 70px; background: var(--panel-2); border-radius: 999px; overflow: hidden; }
+  .meter i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+  .meter i.low { background: var(--danger); }
+  td .small { font-size: 11px; color: var(--muted); }
+
+  .ed-in { width: 92px; text-align: center; padding: 5px 6px; font-size: 12px; }
+  .row-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .mem { display: flex; align-items: center; gap: 8px; padding: 8px 2px; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .mem .grow { flex: 1; }
+  .mem small { color: var(--muted); }
+  .mem-add { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .alloc { display: none; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); margin: 8px 0; }
+  .alloc.open { display: grid; }
+  .alloc label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+  .alloc .full { grid-column: 1 / -1; }
+
+  #err {
+    display: none; background: var(--vac-bg); color: var(--danger);
+    border: 1px solid var(--danger); border-radius: 10px; padding: 10px 12px;
+    font-size: 13px; margin: 12px 0; white-space: pre-wrap;
+  }
+  #loading { font-size: 13px; color: var(--muted); padding: 30px 0; text-align: center; }
+  .ok { color: var(--accent); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">🌴</div>
+    <div class="grow">
+      <h1>휴가봇 관리자</h1>
+      <div class="sub">구글 시트와 실시간 연동 · 관리자 전용</div>
+    </div>
+    <button id="refreshBtn" type="button">↻ 새로고침</button>
+  </header>
+
+  <div id="err"></div>
+  <div id="loading">불러오는 중…</div>
+
+  <div id="app" style="display:none">
+    <h2>주간 시간표</h2>
+    <div class="card">
+      <div class="nav">
+        <button id="wPrev" type="button">◀ 지난주</button>
+        <b id="wLabel"></b>
+        <button id="wNext" type="button">다음주 ▶</button>
+      </div>
+      <div class="scroll"><table id="weekTbl"></table></div>
+      <p class="legend" id="lunchNote"></p>
+    </div>
+
+    <h2>날짜별 근무표 <input type="date" id="gDate" style="margin-left:8px"></h2>
+    <div class="card">
+      <div class="scroll"><table id="gridTbl"></table></div>
+      <p class="legend">
+        <i style="background:var(--work)"></i>근무
+        <i style="background:var(--vac-bg)"></i>휴가
+        <i style="background:repeating-linear-gradient(135deg,var(--line) 0 3px,var(--panel) 3px 9px)"></i>점심
+        <i></i>휴무·근무 외
+      </p>
+    </div>
+
+    <h2>전체 잔여 휴가</h2>
+    <div class="card scroll"><table id="sumTbl"></table></div>
+
+    <h2>시간표 편집</h2>
+    <p class="note">이번 달 표는 저장 즉시 시트의 현재 행을 수정하고(확정),
+      다음 달 표는 <b id="nextEffLabel"></b>부터 적용되는 행으로 저장됩니다(변경 예정).
+      빈칸 = 휴무. 저장하면 시간표 시트에 바로 기록됩니다.</p>
+    <div class="card">
+      <h2 style="margin-top:0" id="curTitle"></h2>
+      <div class="scroll"><table id="edCur"></table></div>
+      <h2 id="nextTitle"></h2>
+      <div class="scroll"><table id="edNext"></table></div>
+      <div class="row-actions">
+        <button class="primary" id="edSaveCur" type="button">이번 달 저장</button>
+        <button class="primary" id="edSaveNext" type="button">다음 달 저장</button>
+        <span class="ok" id="edOk"></span>
+      </div>
+    </div>
+
+    <h2>사람 관리 · 휴가 부여</h2>
+    <p class="note">추가·제거는 명단 시트에, 부여 조정은 명단 시트의 종류별 열에 기록됩니다.
+      부여 칸을 비우면 휴가종류 시트의 기본값을 따릅니다.</p>
+    <div class="card">
+      <div id="memList"></div>
+      <div class="mem-add">
+        <input id="mName" placeholder="이름" style="flex:1;min-width:90px">
+        <input id="mEmail" placeholder="이메일(구글챗 계정)" style="flex:2;min-width:160px">
+        <select id="mBirth"><option value="">생일 (선택)</option></select>
+        <button class="primary" id="mAdd" type="button">추가</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+  var DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+  var state = { weekYmd: null, gridYmd: null, data: null };
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function showErr(e) {
+    $('loading').style.display = 'none';
+    var el = $('err');
+    el.textContent = (e && e.message) ? e.message : String(e);
+    el.style.display = 'block';
+  }
+  function run(fn) {
+    $('err').style.display = 'none';
+    var call = google.script.run.withFailureHandler(showErr);
+    return fn(call);
+  }
+  function refresh() {
+    $('loading').style.display = 'block';
+    run(function (call) {
+      call.withSuccessHandler(render).api_view(state.weekYmd, state.gridYmd);
+    });
+  }
+
+  function render(data) {
+    state.data = data;
+    state.weekYmd = data.week.mondayYmd;
+    state.gridYmd = data.grid.ymd;
+    $('loading').style.display = 'none';
+    $('app').style.display = '';
+
+    /* 주간 시간표 */
+    $('wLabel').textContent = data.week.label;
+    $('weekTbl').innerHTML =
+      '<tr>' + data.week.headers.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') + '</tr>' +
+      data.week.rows.map(function (r) {
+        return '<tr><td class="name">' + esc(r.name) + '</td>' + r.cells.map(function (c) {
+          return '<td class="' + c.cls + '">' + esc(c.t) + '</td>';
+        }).join('') + '</tr>';
+      }).join('');
+    $('lunchNote').textContent = '* 점심시간(' + data.lunchText + ')에도 근무';
+
+    /* 날짜별 근무표 */
+    $('gDate').value = data.grid.ymd;
+    if (data.grid.note) {
+      $('gridTbl').innerHTML = '<tr><td class="off">' + esc(data.grid.note) + '</td></tr>';
+    } else {
+      $('gridTbl').innerHTML =
+        '<tr><th>' + esc(data.grid.kdate) + '</th>' + data.grid.names.map(function (n) {
+          return '<th>' + esc(n) + '</th>';
+        }).join('') + '</tr>' +
+        data.grid.rows.map(function (r) {
+          return '<tr><td class="name">' + esc(r.time) + '</td>' + r.cells.map(function (c) {
+            return '<td class="' + c + '">' + (c === 'vac' ? '휴' : '') + '</td>';
+          }).join('') + '</tr>';
+        }).join('');
+    }
+
+    /* 전체 잔여 */
+    $('sumTbl').innerHTML =
+      '<tr><th>이름</th>' + data.summary.typeNames.map(function (t) {
+        return '<th>' + esc(t) + '</th>';
+      }).join('') + '</tr>' +
+      data.summary.rows.map(function (r) {
+        return '<tr><td class="name">' + esc(r.name) + '</td>' + r.cells.map(function (c) {
+          if (!c) return '<td class="off">-</td>';
+          return '<td><div class="meter"><i class="' + (c.pct < 25 ? 'low' : '') +
+            '" style="width:' + c.pct + '%"></i></div>' +
+            c.remainH + 'h <span class="small">/ ' + c.allocH + 'h</span></td>';
+        }).join('') + '</tr>';
+      }).join('');
+
+    /* 시간표 편집 */
+    $('curTitle').textContent = '이번 달 — ' + data.editor.curMonth + '월 (확정)';
+    $('nextTitle').textContent = '다음 달 — ' + data.editor.nextMonth + '월 (변경 예정)';
+    $('nextEffLabel').textContent = data.editor.nextEffLabel;
+    renderEditor('edCur', data.editor.cur);
+    renderEditor('edNext', data.editor.next);
+
+    /* 사람 관리 */
+    renderMembers(data);
+  }
+
+  function renderEditor(elId, rows) {
+    $(elId).innerHTML =
+      '<tr><th>이름</th>' + DAY_ORDER.map(function (d) {
+        return '<th>' + WEEKDAYS[d] + '</th>';
+      }).join('') + '<th>점심근무</th></tr>' +
+      rows.map(function (r) {
+        return '<tr><td class="name">' + esc(r.name) + '</td>' + DAY_ORDER.map(function (d) {
+          return '<td><input class="ed-in" data-name="' + esc(r.name) + '" data-day="' + d +
+            '" value="' + esc(r.days[d] || '') + '" placeholder="휴무"></td>';
+        }).join('') +
+        '<td><input type="checkbox" class="ed-lunch" data-name="' + esc(r.name) + '"' +
+        (r.lunchWork ? ' checked' : '') + '></td></tr>';
+      }).join('');
+  }
+
+  function readEditor(elId) {
+    var tbl = $(elId), out = {};
+    Array.prototype.forEach.call(tbl.querySelectorAll('input.ed-in'), function (inp) {
+      var n = inp.getAttribute('data-name');
+      out[n] = out[n] || { name: n, days: {}, lunchWork: false };
+      out[n].days[inp.getAttribute('data-day')] = inp.value.trim();
+    });
+    Array.prototype.forEach.call(tbl.querySelectorAll('input.ed-lunch'), function (chk) {
+      var n = chk.getAttribute('data-name');
+      if (out[n]) out[n].lunchWork = chk.checked;
+    });
+    return Object.keys(out).map(function (k) { return out[k]; });
+  }
+
+  function saveTimetable(scope, elId, btn) {
+    btn.disabled = true;
+    $('edOk').textContent = '';
+    run(function (call) {
+      call.withSuccessHandler(function () {
+        btn.disabled = false;
+        $('edOk').textContent = '저장되었습니다 ✓';
+        refresh();
+      }).withFailureHandler(function (e) { btn.disabled = false; showErr(e); })
+        .api_saveTimetable({ scope: scope, nextEff: state.data.editor.nextEff, rows: readEditor(elId) });
+    });
+  }
+
+  function renderMembers(data) {
+    var el = $('memList');
+    el.innerHTML = '';
+    data.members.forEach(function (m) {
+      var row = document.createElement('div');
+      row.className = 'mem';
+      var meta = [];
+      meta.push(m.birthMonth ? '생일 ' + m.birthMonth + '월' : '생일 미등록');
+      if (!m.hasTimetable) meta.push('시간표 미등록');
+      row.innerHTML = '<span class="grow">' + esc(m.name) +
+        ' <small>' + esc(m.email) + ' · ' + esc(meta.join(' · ')) + '</small></span>';
+
+      var allocBtn = document.createElement('button');
+      allocBtn.type = 'button'; allocBtn.textContent = '휴가 부여';
+      var delBtn = document.createElement('button');
+      delBtn.type = 'button'; delBtn.textContent = '제거';
+      row.appendChild(allocBtn); row.appendChild(delBtn);
+      el.appendChild(row);
+
+      var form = document.createElement('div');
+      form.className = 'alloc';
+      form.innerHTML = data.types.map(function (t) {
+        var cyc = t.carryover ? '연·이월' : ({ year: '연', half: '반기당', month: '월', birthmonth: '생일월' }[t.cycle] || '연');
+        var cur = m.allocH[t.name];
+        var isDefault = cur === t.allocH;
+        return '<label>' + esc(t.name) + ' <small>(' + cyc + ', 기본 ' + t.allocH + 'h)</small>' +
+          '<input type="number" min="0" step="0.5" data-type="' + esc(t.name) + '"' +
+          ' value="' + (isDefault ? '' : cur) + '" placeholder="' + t.allocH + '"></label>';
+      }).join('') +
+        '<div class="full"><button class="primary" type="button">부여 저장</button> ' +
+        '<span class="small">비우면 기본값 · 시간(h) 단위 · 명단 시트에 기록됨</span></div>';
+      allocBtn.addEventListener('click', function () { form.classList.toggle('open'); });
+      form.querySelector('button').addEventListener('click', function () {
+        var ov = {};
+        Array.prototype.forEach.call(form.querySelectorAll('input[data-type]'), function (inp) {
+          ov[inp.getAttribute('data-type')] = inp.value.trim();
+        });
+        run(function (call) {
+          call.withSuccessHandler(refresh).api_setAlloc(m.email, ov);
+        });
+      });
+      el.appendChild(form);
+
+      delBtn.addEventListener('click', function () {
+        if (!confirm(m.name + ' 님을 명단에서 제거할까요? (휴가 기록은 남습니다)')) return;
+        run(function (call) {
+          call.withSuccessHandler(refresh).api_removeMember(m.email);
+        });
+      });
+    });
+  }
+
+  /* 내비게이션·입력 */
+  function shiftWeek(days) {
+    var p = state.weekYmd.split('-');
+    var d = new Date(+p[0], +p[1] - 1, +p[2] + days);
+    state.weekYmd = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+    refresh();
+  }
+  $('wPrev').addEventListener('click', function () { shiftWeek(-7); });
+  $('wNext').addEventListener('click', function () { shiftWeek(7); });
+  $('gDate').addEventListener('change', function () { state.gridYmd = this.value || null; refresh(); });
+  $('refreshBtn').addEventListener('click', refresh);
+  $('edSaveCur').addEventListener('click', function () { saveTimetable('cur', 'edCur', this); });
+  $('edSaveNext').addEventListener('click', function () { saveTimetable('next', 'edNext', this); });
+
+  for (var b = 1; b <= 12; b++) {
+    var op = document.createElement('option');
+    op.value = String(b); op.textContent = b + '월';
+    $('mBirth').appendChild(op);
+  }
+  $('mAdd').addEventListener('click', function () {
+    run(function (call) {
+      call.withSuccessHandler(function () {
+        $('mName').value = ''; $('mEmail').value = ''; $('mBirth').value = '';
+        refresh();
+      }).api_addMember($('mName').value, $('mEmail').value, Number($('mBirth').value) || null);
+    });
+  });
+
+  refresh();
+})();
+</script>
+</body>
+</html>
