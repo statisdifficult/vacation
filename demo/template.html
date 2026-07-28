@@ -196,7 +196,10 @@
   .sv-scroll td.name { background: var(--panel-2); font-weight: 700; text-align: left; }
   td.c-work { background: var(--user-bubble); }
   td.c-vac { background: var(--private-bg); color: var(--private); font-weight: 700; }
-  td.c-lunch { background: var(--chip); color: var(--muted); }
+  td.c-lunch {
+    background: repeating-linear-gradient(135deg, var(--line) 0 3px, var(--panel) 3px 9px);
+    color: var(--muted); font-size: 11px;
+  }
   td.c-off { color: var(--muted); }
   td.c-hol { color: var(--danger); }
   .sv-legend { font-size: 12px; color: var(--muted); margin-top: 8px; }
@@ -354,7 +357,7 @@
     <p class="sv-legend">
       <i style="background:var(--user-bubble)"></i>근무
       <i style="background:var(--private-bg)"></i>휴가
-      <i style="background:var(--chip)"></i>점심
+      <i style="background:repeating-linear-gradient(135deg,var(--line) 0 3px,var(--panel) 3px 9px)"></i>점심
       <i></i>휴무·근무 외
     </p>
 
