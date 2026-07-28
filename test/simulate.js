@@ -46,7 +46,7 @@ function hm(a, b) { return { start: TimeUtil.parseHM(a), end: TimeUtil.parseHM(b
 
 const settings = {
   workStart: 600, workEnd: 1140, lunchStart: 780, lunchEnd: 840,
-  lunchExcluded: true, defaultDailyMin: 480, honorific: '선생님'
+  lunchExcluded: true, defaultDailyMin: 480, honorific: '선생님', gridSlotMin: 30
 };
 const holidays = { '2026-08-17': '대체공휴일(광복절)', '2026-09-25': '추석' };
 

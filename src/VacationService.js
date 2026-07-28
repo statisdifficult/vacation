@@ -435,9 +435,10 @@ var VacationService = (function () {
       var maxE = Math.max.apply(null, working.map(function (c) { return c.sched.end; }));
       var recs = activeRecordsOn(ctx, ymd);
 
+      var slot = ctx.settings.gridSlotMin || 30;
       var rows = [];
-      for (var h = Math.floor(minS / 60); h < Math.ceil(maxE / 60); h++) {
-        var slotS = h * 60, slotE = slotS + 60;
+      for (var t = Math.floor(minS / slot) * slot; t < maxE; t += slot) {
+        var slotS = t, slotE = t + slot;
         var cells = cols.map(function (c) {
           if (!c.sched) return '·';
           var work = TimeUtil.overlapMin(c.sched.start, c.sched.end, slotS, slotE);

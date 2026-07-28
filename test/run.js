@@ -139,7 +139,8 @@ function makeCtx(overrides) {
     ],
     settings: {
       workStart: 600, workEnd: 1140, lunchStart: 780, lunchEnd: 840,
-      lunchExcluded: true, defaultDailyMin: 480, honorific: '선생님', baseYear: null
+      lunchExcluded: true, defaultDailyMin: 480, honorific: '선생님', baseYear: null,
+      gridSlotMin: 30
     },
     schedule: {},
     holidays: { '2026-08-17': '대체공휴일' },
@@ -349,7 +350,8 @@ test('근무표: 시간대×사람, 휴가·점심·휴무 표시', () => {
   assert.ok(g.message.includes('근무표'));
   assert.ok(g.message.includes('윤지훈'));
   assert.ok(g.message.includes('10:00'));
-  assert.ok(g.message.includes('20:00'));
+  assert.ok(g.message.includes('10:30')); // 30분 단위
+  assert.ok(g.message.includes('20:30'));
   assert.ok(g.message.includes('휴'));  // 윤지훈 10-12시 휴가
   assert.ok(g.message.includes('●'));
   assert.ok(g.message.includes('─'));  // 점심(13:00) 표시

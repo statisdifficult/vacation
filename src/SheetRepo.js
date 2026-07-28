@@ -69,7 +69,8 @@ var SheetRepo = (function () {
       noticeHour: Number(map['공지시간']) || 8,
       webhookUrl: String(map['웹훅URL'] || '').trim(),
       adminEmails: String(map['관리자'] || '').toLowerCase().split(/[,;\s]+/).filter(Boolean),
-      baseYear: Number(map['기준연도']) || null
+      baseYear: Number(map['기준연도']) || null,
+      gridSlotMin: Number(map['근무표단위']) || 30
     };
   }
 
