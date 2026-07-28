@@ -30,21 +30,41 @@ var VacationService = (function () {
     return null;
   }
 
-  /** 이름 기준 그날의 근무시간표. 근무일이 아니면 null */
+  /**
+   * 이름 기준 그날의 근무시간표. 근무일이 아니면 null.
+   * ctx.schedule[name]은 두 형태를 지원한다:
+   *  - { 요일번호: {start,end} }                      — 단일 시간표
+   *  - [{ effective, days, lunchWork }, ...]          — 적용일별 버전 (적용일 오름차순)
+   *    effective: 'yyyy-MM-dd' 부터 적용 (null이면 처음부터),
+   *    lunchWork: true면 점심시간에도 근무(점심 차감 없음)
+   */
   function scheduleFor(ctx, name, date) {
     var lunch = lunchOf(ctx.settings);
-    var tt = ctx.schedule[name];
-    if (tt) {
-      var cell = tt[date.getDay()];
+    var entry = ctx.schedule[name];
+    if (entry) {
+      var days = entry, lunchWork = false;
+      if (Array.isArray(entry)) {
+        var ymd = DateUtil.ymd(date), version = null;
+        for (var i = 0; i < entry.length; i++) {
+          if (!entry[i].effective || entry[i].effective <= ymd) version = entry[i];
+        }
+        if (!version) return null;
+        days = version.days;
+        lunchWork = !!version.lunchWork;
+      }
+      var cell = days[date.getDay()];
       if (!cell) return null;
-      return { start: cell.start, end: cell.end, net: TimeUtil.netMinutes(cell.start, cell.end, lunch) };
+      var l = lunchWork ? { excluded: false } : lunch;
+      return { start: cell.start, end: cell.end, net: TimeUtil.netMinutes(cell.start, cell.end, l),
+               lunchWork: lunchWork };
     }
     // 시간표에 없는 사람은 월~금 기본 근무시간 적용
     if (DateUtil.isWeekend(date)) return null;
     return {
       start: ctx.settings.workStart,
       end: ctx.settings.workEnd,
-      net: TimeUtil.netMinutes(ctx.settings.workStart, ctx.settings.workEnd, lunch)
+      net: TimeUtil.netMinutes(ctx.settings.workStart, ctx.settings.workEnd, lunch),
+      lunchWork: false
     };
   }
 
@@ -177,15 +197,17 @@ var VacationService = (function () {
           continue;
         }
 
+        // 점심에도 근무하는 사람은 점심시간을 차감하지 않는다
+        var effLunch = sched.lunchWork ? { excluded: false } : lunch;
         var s, e, min;
         if (parsed.startMin != null) {
           s = parsed.startMin; e = parsed.endMin;
-          min = TimeUtil.netMinutes(s, e, lunch);
+          min = TimeUtil.netMinutes(s, e, effLunch);
         } else if (parsed.halfDay) {
           var mid = sched.start + Math.round((sched.end - sched.start) / 2);
           if (parsed.halfDay === 'AM') { s = sched.start; e = mid; }
           else { s = mid; e = sched.end; }
-          min = TimeUtil.netMinutes(s, e, lunch);
+          min = TimeUtil.netMinutes(s, e, effLunch);
         } else {
           s = sched.start; e = sched.end; min = sched.net;
         }
@@ -443,7 +465,8 @@ var VacationService = (function () {
           if (!c.sched) return '·';
           var work = TimeUtil.overlapMin(c.sched.start, c.sched.end, slotS, slotE);
           if (work <= 0) return '·';
-          if (lunch.excluded && TimeUtil.overlapMin(lunch.start, lunch.end, slotS, slotE) >= work) return '─';
+          if (lunch.excluded && !c.sched.lunchWork &&
+              TimeUtil.overlapMin(lunch.start, lunch.end, slotS, slotE) >= work) return '─';
           var vac = 0;
           recs.forEach(function (r) {
             if (r.email === c.m.email) {
@@ -462,14 +485,51 @@ var VacationService = (function () {
       return { message: message, isPrivate: false };
     },
 
+    /**
+     * 주간 시간표 (행=사람, 열=요일) — 시간표 시트를 엑셀처럼 한눈에.
+     * 적용일 버전을 반영하므로 다음 주 날짜를 주면 바뀐 시간표가 보인다.
+     */
+    timetableWeek: function (ctx, anyDate) {
+      var mon = DateUtil.monday(anyDate);
+      var hasSat = ctx.members.some(function (m) { return !!scheduleFor(ctx, m.name, DateUtil.addDays(mon, 5)); });
+      var hasSun = ctx.members.some(function (m) { return !!scheduleFor(ctx, m.name, DateUtil.addDays(mon, 6)); });
+      var count = 5 + (hasSat ? 1 : 0) + (hasSun ? 1 : 0);
+
+      var headers = ['이름'], dates = [];
+      for (var i = 0; i < count; i++) {
+        var d = DateUtil.addDays(mon, i);
+        dates.push(d);
+        headers.push(DateUtil.WEEKDAYS[d.getDay()] + ' ' + (d.getMonth() + 1) + '/' + d.getDate());
+      }
+
+      var hasLunchWork = false;
+      var rows = ctx.members.map(function (m) {
+        return [m.name].concat(dates.map(function (d) {
+          if (ctx.holidays[DateUtil.ymd(d)]) return '공휴일';
+          var sched = scheduleFor(ctx, m.name, d);
+          if (!sched) return '휴무';
+          var cell = TimeUtil.fmtShortHM(sched.start) + '-' + TimeUtil.fmtShortHM(sched.end);
+          if (sched.lunchWork) { cell += '*'; hasLunchWork = true; }
+          return cell;
+        }));
+      });
+
+      var last = dates[dates.length - 1];
+      var lines = ['📅 *주간 시간표* (' + (mon.getMonth() + 1) + '/' + mon.getDate() +
+        '~' + (last.getMonth() + 1) + '/' + last.getDate() + ')',
+        ChartText.buildTable(headers, rows)];
+      if (hasLunchWork) {
+        lines.push('* 점심시간(' + TimeUtil.fmtHM(ctx.settings.lunchStart) + '-' +
+          TimeUtil.fmtHM(ctx.settings.lunchEnd) + ')에도 근무');
+      }
+      return { message: lines.join('\n'), isPrivate: false };
+    },
+
     /** 이번 주(월~금, 시간표에 토·일이 있으면 포함) 요일별 근무 시간 합계 그래프 */
     workChartWeek: function (ctx, anyDate) {
       var mon = DateUtil.monday(anyDate);
-      var hasSat = false, hasSun = false;
-      Object.keys(ctx.schedule).forEach(function (n) {
-        if (ctx.schedule[n][6]) hasSat = true;
-        if (ctx.schedule[n][0]) hasSun = true;
-      });
+      var hasSat = ctx.members.some(function (m) { return !!scheduleFor(ctx, m.name, DateUtil.addDays(mon, 5)); });
+      var hasSun = ctx.members.some(function (m) { return !!scheduleFor(ctx, m.name, DateUtil.addDays(mon, 6)); });
       var count = 5 + (hasSat ? 1 : 0) + (hasSun ? 1 : 0);
 
       var days = [];

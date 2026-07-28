@@ -19,6 +19,12 @@ var TimeUtil = {
     return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
   },
 
+  /** 630 → "10:30", 정각이면 "10" (시간표 셀 압축 표기용) */
+  fmtShortHM: function (min) {
+    var h = Math.floor(min / 60), m = min % 60;
+    return m ? h + ':' + (m < 10 ? '0' : '') + m : String(h);
+  },
+
   /** 두 구간 [aS,aE), [bS,bE)이 겹치는 분 */
   overlapMin: function (aS, aE, bS, bE) {
     return Math.max(0, Math.min(aE, bE) - Math.max(aS, bS));

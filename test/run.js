@@ -337,6 +337,50 @@ test('일반휴가: 기준연도부터 이월 누적', () => {
   assert.ok(r.message.includes('이월 포함'));
   assert.ok(r.message.includes('212시간')); // 108h×2년 - 4h
 });
+test('시간표 적용일: 지정한 날짜부터 새 버전 적용', () => {
+  const ctx = makeCtx({
+    schedule: {
+      윤지훈: [
+        { effective: null, days: { 1: { start: 600, end: 1140 } }, lunchWork: false },
+        { effective: '2026-07-27', days: { 1: { start: 660, end: 1200 } }, lunchWork: false }
+      ]
+    }
+  });
+  const before = VacationService.scheduleFor(ctx, '윤지훈', new Date(2026, 6, 20)); // 7/20(월)
+  assert.strictEqual(before.start, 600);  // 10:00
+  const after = VacationService.scheduleFor(ctx, '윤지훈', new Date(2026, 6, 27)); // 7/27(월)
+  assert.strictEqual(after.start, 660);   // 11:00 — 적용일부터 변경
+});
+test('점심근무: 점심시간을 차감하지 않음', () => {
+  const ctx = makeCtx({
+    schedule: { 윤지훈: [{ effective: null, days: { 2: { start: 600, end: 1140 } }, lunchWork: true }] }
+  });
+  const r = VacationService.register(ctx, Parser.parse('7/28 종일', OPTS));
+  assert.strictEqual(r.rows[0][6], 540); // 10:00-19:00 = 9h, 점심 차감 없음
+  const t = VacationService.register(makeCtx({
+    schedule: { 윤지훈: [{ effective: null, days: { 2: { start: 600, end: 1140 } }, lunchWork: true }] }
+  }), Parser.parse('7/28 12:00-15:00', OPTS));
+  assert.strictEqual(t.rows[0][6], 180); // 시간 지정도 점심 차감 없음
+});
+test('주간 시간표 표: 엑셀 형태, 적용일·점심근무 반영', () => {
+  const ctx = makeCtx({
+    schedule: {
+      윤지훈: [
+        { effective: null, days: { 1: { start: 600, end: 1140 }, 3: { start: 630, end: 900 } }, lunchWork: false },
+        { effective: '2026-07-27', days: { 1: { start: 660, end: 1200 } }, lunchWork: false }
+      ],
+      김민수: [{ effective: null, days: { 1: { start: 600, end: 900 } }, lunchWork: true }]
+    }
+  });
+  const t = VacationService.timetableWeek(ctx, TODAY); // 7/20 주
+  assert.ok(t.message.includes('10-19'));   // 윤지훈 월
+  assert.ok(t.message.includes('10:30-15')); // 윤지훈 수
+  assert.ok(t.message.includes('10-15*'));  // 김민수 점심근무 표시
+  assert.ok(t.message.includes('휴무'));
+  assert.ok(t.message.includes('점심시간'));
+  const next = VacationService.timetableWeek(ctx, new Date(2026, 6, 27)); // 다음 주
+  assert.ok(next.message.includes('11-20')); // 적용일 반영
+});
 test('근무표: 시간대×사람, 휴가·점심·휴무 표시', () => {
   const ctx = makeCtx({
     schedule: {

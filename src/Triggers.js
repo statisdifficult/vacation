@@ -36,8 +36,9 @@ function postDailyNotice() {
 }
 
 function hasWeekendSchedule_(ctx) {
-  var day = ctx.today.getDay();
-  return Object.keys(ctx.schedule).some(function (n) { return !!ctx.schedule[n][day]; });
+  return ctx.members.some(function (m) {
+    return !!VacationService.scheduleFor(ctx, m.name, ctx.today);
+  });
 }
 
 /** 매일 아침 공지 트리거 설치 (편집기에서 한 번 실행) */

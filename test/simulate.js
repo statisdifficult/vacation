@@ -36,16 +36,29 @@ const members = [
   { name: '이서연', email: 'lee@chilab.kr', birthMonth: null, alloc }
 ];
 
-// 요일: 0=일 … 6=토. 이서연은 월·수·금만 근무하는 예시
+// 요일: 0=일 … 6=토. 시간표는 적용일별 버전 배열 — 적용일부터 새 시간표가 적용된다.
+// 윤지훈은 다음 주 월요일부터 근무시간이 바뀌는 예시, 이서연은 점심에도 근무(점심 차감 없음)
+const nextMonday = DateUtil.ymd(DateUtil.addDays(DateUtil.monday(new Date()), 7));
 const schedule = {
-  윤지훈: { 1: hm('10:00', '19:00'), 2: hm('10:00', '19:00'), 3: hm('10:00', '19:00'), 4: hm('10:00', '19:00'), 5: hm('10:00', '19:00') },
-  김민수: { 1: hm('13:00', '21:00'), 2: hm('13:00', '21:00'), 3: hm('13:00', '21:00'), 4: hm('13:00', '21:00'), 5: hm('13:00', '18:00') },
-  이서연: { 1: hm('10:00', '15:00'), 3: hm('10:00', '15:00'), 5: hm('10:00', '15:00') }
+  윤지훈: [
+    { effective: null, lunchWork: false,
+      days: { 1: hm('10:00', '19:00'), 2: hm('10:00', '19:00'), 3: hm('10:00', '19:00'), 4: hm('10:00', '19:00'), 5: hm('10:00', '19:00') } },
+    { effective: nextMonday, lunchWork: false,
+      days: { 1: hm('11:00', '20:00'), 2: hm('11:00', '20:00'), 3: hm('11:00', '20:00'), 4: hm('11:00', '20:00'), 5: hm('11:00', '20:00') } }
+  ],
+  김민수: [
+    { effective: null, lunchWork: false,
+      days: { 1: hm('13:00', '21:00'), 2: hm('13:00', '21:00'), 3: hm('13:00', '21:00'), 4: hm('13:00', '21:00'), 5: hm('13:00', '18:00') } }
+  ],
+  이서연: [
+    { effective: null, lunchWork: true,
+      days: { 1: hm('10:00', '15:00'), 3: hm('10:00', '15:00'), 5: hm('10:00', '15:00') } }
+  ]
 };
 function hm(a, b) { return { start: TimeUtil.parseHM(a), end: TimeUtil.parseHM(b) }; }
 
 const settings = {
-  workStart: 600, workEnd: 1140, lunchStart: 780, lunchEnd: 840,
+  workStart: 600, workEnd: 1140, lunchStart: 720, lunchEnd: 780, // 점심 12:00-13:00
   lunchExcluded: true, defaultDailyMin: 480, honorific: '선생님', gridSlotMin: 30
 };
 const holidays = { '2026-08-17': '대체공휴일(광복절)', '2026-09-25': '추석' };
@@ -64,7 +77,7 @@ function ctx() {
 const COMMANDS = {
   '휴가사용': 'use', '휴가등록': 'use', '휴가신청': 'use',
   '휴가취소': 'cancel', '휴가조회': 'query', '휴가현황': 'status',
-  '근무현황': 'work', '근무표': 'grid', '시간표': 'grid',
+  '근무현황': 'work', '근무표': 'grid', '시간표': 'timetable', '주간시간표': 'timetable',
   '휴가전체현황': 'admin', '전체현황': 'admin', '잔여현황': 'admin',
   '휴가도움말': 'help', '도움말': 'help'
 };
@@ -115,6 +128,15 @@ function handle(input) {
     }
     case 'query': return { text: VacationService.query(c).message, priv: true };
     case 'admin': return { text: VacationService.adminSummary(c).message, priv: true };
+    case 'timetable': {
+      let tdate = c.today;
+      if (args) {
+        const p = Parser.parse(args, opts);
+        if (p.error) return { text: '⚠️ ' + p.error, priv: true };
+        tdate = p.startDate;
+      }
+      return { text: VacationService.timetableWeek(c, tdate).message };
+    }
     case 'grid': {
       let date = c.today;
       if (args) {

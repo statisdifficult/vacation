@@ -5,11 +5,11 @@
  *   1 /휴가사용   2 /휴가취소   3 /휴가조회   4 /휴가현황   5 /근무현황   6 /휴가도움말
  * 슬래시 명령을 등록하지 않아도 "휴가사용 7/28 …"처럼 텍스트로 입력하면 동작한다.
  */
-var SLASH_COMMANDS = { 1: 'use', 2: 'cancel', 3: 'query', 4: 'status', 5: 'work', 6: 'help', 7: 'admin', 8: 'grid' };
+var SLASH_COMMANDS = { 1: 'use', 2: 'cancel', 3: 'query', 4: 'status', 5: 'work', 6: 'help', 7: 'admin', 8: 'grid', 9: 'timetable' };
 var TEXT_COMMANDS = {
   '휴가사용': 'use', '휴가등록': 'use', '휴가신청': 'use',
   '휴가취소': 'cancel', '휴가조회': 'query', '휴가현황': 'status',
-  '근무현황': 'work', '근무표': 'grid', '시간표': 'grid',
+  '근무현황': 'work', '근무표': 'grid', '시간표': 'timetable', '주간시간표': 'timetable',
   '휴가전체현황': 'admin', '전체현황': 'admin', '잔여현황': 'admin',
   '휴가도움말': 'help', '도움말': 'help', 'help': 'help'
 };
@@ -113,6 +113,16 @@ function handleMessage_(event) {
         gdate = gp.startDate;
       }
       return reply_(event, VacationService.workGridDay(ctx, gdate).message, false);
+    }
+
+    case 'timetable': {
+      var tdate = ctx.today;
+      if (args) {
+        var tp = Parser.parse(args, parserOpts);
+        if (tp.error) return reply_(event, '⚠️ ' + tp.error, true);
+        tdate = tp.startDate;
+      }
+      return reply_(event, VacationService.timetableWeek(ctx, tdate).message, false);
     }
 
     case 'work': {

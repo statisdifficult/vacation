@@ -61,8 +61,8 @@ var SheetRepo = (function () {
     return {
       workStart: cellToMin(map['근무시작']) != null ? cellToMin(map['근무시작']) : 600,   // 10:00
       workEnd: cellToMin(map['근무종료']) != null ? cellToMin(map['근무종료']) : 1140,   // 19:00
-      lunchStart: cellToMin(map['점심시작']) != null ? cellToMin(map['점심시작']) : 780, // 13:00
-      lunchEnd: cellToMin(map['점심종료']) != null ? cellToMin(map['점심종료']) : 840,   // 14:00
+      lunchStart: cellToMin(map['점심시작']) != null ? cellToMin(map['점심시작']) : 720, // 12:00
+      lunchEnd: cellToMin(map['점심종료']) != null ? cellToMin(map['점심종료']) : 780,   // 13:00
       lunchExcluded: String(map['점심제외'] == null ? 'TRUE' : map['점심제외']).toUpperCase() !== 'FALSE',
       defaultDailyMin: (Number(map['기본근무시간']) || 8) * 60,
       honorific: String(map['호칭'] || '선생님').trim(),
@@ -134,26 +134,49 @@ var SheetRepo = (function () {
     });
   }
 
+  /**
+   * 시간표 시트 → { 이름: [{effective, days, lunchWork}, ...] } (적용일 오름차순).
+   * 열은 헤더 이름으로 찾는다: 이름 | (적용일) | 월..일 | (점심).
+   * 같은 사람의 행을 여러 개 두고 적용일을 적으면 그 날짜부터 새 시간표가 적용된다.
+   */
   function getSchedule() {
     var sh = sheet(SHEET.timetable);
     var last = sh.getLastRow();
     if (last < 2) return {};
     var header = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String);
     var rows = sh.getRange(2, 1, last - 1, sh.getLastColumn()).getValues();
+
+    var effIdx = -1, lunchIdx = -1, dayCols = [];
+    header.forEach(function (h, i) {
+      var name = h.trim();
+      if (name === '적용일') effIdx = i;
+      else if (name === '점심') lunchIdx = i;
+      else {
+        var day = DateUtil.WEEKDAYS.indexOf(name.replace(/요일$/, ''));
+        if (day !== -1) dayCols.push({ i: i, day: day });
+      }
+    });
+
     var map = {};
     rows.forEach(function (r) {
       if (!r[0]) return;
-      var tt = {};
-      header.forEach(function (h, i) {
-        var day = DateUtil.WEEKDAYS.indexOf(h.trim().replace(/요일$/, ''));
-        if (day === -1) return;
-        var cell = String(r[i] == null ? '' : r[i]).trim();
+      var days = {};
+      dayCols.forEach(function (c) {
+        var cell = String(r[c.i] == null ? '' : r[c.i]).trim();
         if (!cell || cell === '휴무') return;
         var parts = cell.replace(/\s/g, '').split(/[-~]/);
         var s = TimeUtil.parseHM(parts[0]), e = TimeUtil.parseHM(parts[1]);
-        if (s != null && e != null && e > s) tt[day] = { start: s, end: e };
+        if (s != null && e != null && e > s) days[c.day] = { start: s, end: e };
       });
-      map[String(r[0]).trim()] = tt;
+      var name = String(r[0]).trim();
+      (map[name] = map[name] || []).push({
+        effective: effIdx === -1 ? null : cellToYmd(r[effIdx]),
+        days: days,
+        lunchWork: lunchIdx !== -1 && /근무/.test(String(r[lunchIdx] || ''))
+      });
+    });
+    Object.keys(map).forEach(function (n) {
+      map[n].sort(function (a, b) { return (a.effective || '') < (b.effective || '') ? -1 : 1; });
     });
     return map;
   }
