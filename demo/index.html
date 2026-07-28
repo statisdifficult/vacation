@@ -423,6 +423,8 @@ var Messages = {
       '    예) /휴가현황, /휴가현황 내일',
       '*/근무현황* — 근무 시간 막대그래프',
       '    예) /근무현황 (오늘), /근무현황 이번주',
+      '*/근무표* — 시간대×사람 근무표',
+      '    예) /근무표, /근무표 내일',
       '*/휴가전체현황* — 전체 잔여 휴가 표 (관리자 전용)',
       '',
       '· 날짜: 7/28, 7월28일, 내일, 다음주 월 등 자유롭게 입력',
@@ -683,11 +685,15 @@ var Parser = (function () {
 var ChartText = (function () {
   var BAR_WIDTH = 12; // 최대 막대 길이(칸)
 
-  /** 한글은 2칸, 영문·숫자는 1칸으로 계산한 표시 폭 */
+  /** 한글·CJK는 2칸, 그 외(영문·숫자·기호)는 1칸으로 계산한 표시 폭 */
   function displayWidth(str) {
     var w = 0;
     for (var i = 0; i < str.length; i++) {
-      w += str.charCodeAt(i) > 0x2000 ? 2 : 1;
+      var c = str.charCodeAt(i);
+      var wide = (c >= 0x1100 && c <= 0x115F) || (c >= 0x2E80 && c <= 0x9FFF) ||
+                 (c >= 0xAC00 && c <= 0xD7A3) || (c >= 0xF900 && c <= 0xFAFF) ||
+                 (c >= 0xFF00 && c <= 0xFF60);
+      w += wide ? 2 : 1;
     }
     return w;
   }
@@ -1190,6 +1196,52 @@ var VacationService = (function () {
       return { message: ChartText.buildDayChart('📊 *' + kd + ' 근무 현황*', rows), isPrivate: false };
     },
 
+    /**
+     * 시간대×사람 근무표 (열=이름, 행=1시간 단위).
+     * ● 근무 / 휴 휴가 / ─ 점심 / · 근무시간 아님
+     */
+    workGridDay: function (ctx, date) {
+      var ymd = DateUtil.ymd(date), kd = DateUtil.kdate(date);
+      var hol = ctx.holidays[ymd];
+      if (hol) return { message: '🗓 ' + kd + '은(는) ' + (typeof hol === 'string' ? hol : '공휴일') + '입니다.', isPrivate: false };
+
+      var lunch = lunchOf(ctx.settings);
+      var cols = ctx.members.map(function (m) {
+        return { m: m, sched: scheduleFor(ctx, m.name, date) };
+      });
+      var working = cols.filter(function (c) { return c.sched; });
+      if (!working.length) return { message: '🗓 ' + kd + ' 근무자가 없습니다.', isPrivate: false };
+
+      var minS = Math.min.apply(null, working.map(function (c) { return c.sched.start; }));
+      var maxE = Math.max.apply(null, working.map(function (c) { return c.sched.end; }));
+      var recs = activeRecordsOn(ctx, ymd);
+
+      var rows = [];
+      for (var h = Math.floor(minS / 60); h < Math.ceil(maxE / 60); h++) {
+        var slotS = h * 60, slotE = slotS + 60;
+        var cells = cols.map(function (c) {
+          if (!c.sched) return '·';
+          var work = TimeUtil.overlapMin(c.sched.start, c.sched.end, slotS, slotE);
+          if (work <= 0) return '·';
+          if (lunch.excluded && TimeUtil.overlapMin(lunch.start, lunch.end, slotS, slotE) >= work) return '─';
+          var vac = 0;
+          recs.forEach(function (r) {
+            if (r.email === c.m.email) {
+              vac += TimeUtil.overlapMin(Math.max(r.startMin, c.sched.start), Math.min(r.endMin, c.sched.end), slotS, slotE);
+            }
+          });
+          return vac > 0 ? '휴' : '●';
+        });
+        rows.push([TimeUtil.fmtHM(slotS)].concat(cells));
+      }
+
+      var names = ctx.members.map(function (m) { return m.name; });
+      var message = '🗓 *' + kd + ' 근무표*\n' +
+        ChartText.buildTable(['시간'].concat(names), rows) +
+        '\n● 근무 · 휴 휴가 · ─ 점심 · · 휴무/근무 외';
+      return { message: message, isPrivate: false };
+    },
+
     /** 이번 주(월~금, 시간표에 토·일이 있으면 포함) 요일별 근무 시간 합계 그래프 */
     workChartWeek: function (ctx, anyDate) {
       var mon = DateUtil.monday(anyDate);
@@ -1300,7 +1352,7 @@ var VacationService = (function () {
   var COMMANDS = {
     '휴가사용': 'use', '휴가등록': 'use', '휴가신청': 'use',
     '휴가취소': 'cancel', '휴가조회': 'query', '휴가현황': 'status',
-    '근무현황': 'work', '근무표': 'work',
+    '근무현황': 'work', '근무표': 'grid', '시간표': 'grid',
     '휴가전체현황': 'admin', '전체현황': 'admin', '잔여현황': 'admin',
     '휴가도움말': 'help', '도움말': 'help'
   };
@@ -1348,6 +1400,15 @@ var VacationService = (function () {
           '\n실제 봇에서는 설정 시트의 \'관리자\'로 등록된 사람만 볼 수 있고, 구글 시트의 잔여현황 탭에도 같은 표가 자동으로 채워집니다.',
         priv: true
       };
+      case 'grid': {
+        var gd = c.today;
+        if (args) {
+          var gp = Parser.parse(args, opts);
+          if (gp.error) return { text: '⚠️ ' + gp.error, priv: true };
+          gd = gp.startDate;
+        }
+        return { text: VacationService.workGridDay(c, gd).message };
+      }
       case 'status': {
         var date = c.today;
         if (args) {
@@ -1500,6 +1561,7 @@ var VacationService = (function () {
     '휴가사용 8/3~8/5 논문휴가',
     '휴가조회',
     '휴가현황 내일',
+    '근무표',
     '근무현황',
     '근무현황 이번주',
     '휴가전체현황',

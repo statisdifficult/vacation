@@ -20,9 +20,11 @@ function postDailyNotice() {
   if (DateUtil.isWeekend(today) && !hasWeekendSchedule_(ctx)) return;
   if (ctx.holidays[ymd]) return;
 
-  var parts = [VacationService.workChartDay(ctx, today).message];
-  var statusMsg = VacationService.status(ctx, today).message;
-  parts.push(statusMsg);
+  var parts = [
+    VacationService.workGridDay(ctx, today).message,
+    VacationService.workChartDay(ctx, today).message,
+    VacationService.status(ctx, today).message
+  ];
 
   try { refreshAdminSheet(); } catch (e) { console.warn('잔여현황 갱신 실패: ' + e); }
 

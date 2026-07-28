@@ -415,6 +415,52 @@ var VacationService = (function () {
       return { message: ChartText.buildDayChart('📊 *' + kd + ' 근무 현황*', rows), isPrivate: false };
     },
 
+    /**
+     * 시간대×사람 근무표 (열=이름, 행=1시간 단위).
+     * ● 근무 / 휴 휴가 / ─ 점심 / · 근무시간 아님
+     */
+    workGridDay: function (ctx, date) {
+      var ymd = DateUtil.ymd(date), kd = DateUtil.kdate(date);
+      var hol = ctx.holidays[ymd];
+      if (hol) return { message: '🗓 ' + kd + '은(는) ' + (typeof hol === 'string' ? hol : '공휴일') + '입니다.', isPrivate: false };
+
+      var lunch = lunchOf(ctx.settings);
+      var cols = ctx.members.map(function (m) {
+        return { m: m, sched: scheduleFor(ctx, m.name, date) };
+      });
+      var working = cols.filter(function (c) { return c.sched; });
+      if (!working.length) return { message: '🗓 ' + kd + ' 근무자가 없습니다.', isPrivate: false };
+
+      var minS = Math.min.apply(null, working.map(function (c) { return c.sched.start; }));
+      var maxE = Math.max.apply(null, working.map(function (c) { return c.sched.end; }));
+      var recs = activeRecordsOn(ctx, ymd);
+
+      var rows = [];
+      for (var h = Math.floor(minS / 60); h < Math.ceil(maxE / 60); h++) {
+        var slotS = h * 60, slotE = slotS + 60;
+        var cells = cols.map(function (c) {
+          if (!c.sched) return '·';
+          var work = TimeUtil.overlapMin(c.sched.start, c.sched.end, slotS, slotE);
+          if (work <= 0) return '·';
+          if (lunch.excluded && TimeUtil.overlapMin(lunch.start, lunch.end, slotS, slotE) >= work) return '─';
+          var vac = 0;
+          recs.forEach(function (r) {
+            if (r.email === c.m.email) {
+              vac += TimeUtil.overlapMin(Math.max(r.startMin, c.sched.start), Math.min(r.endMin, c.sched.end), slotS, slotE);
+            }
+          });
+          return vac > 0 ? '휴' : '●';
+        });
+        rows.push([TimeUtil.fmtHM(slotS)].concat(cells));
+      }
+
+      var names = ctx.members.map(function (m) { return m.name; });
+      var message = '🗓 *' + kd + ' 근무표*\n' +
+        ChartText.buildTable(['시간'].concat(names), rows) +
+        '\n● 근무 · 휴 휴가 · ─ 점심 · · 휴무/근무 외';
+      return { message: message, isPrivate: false };
+    },
+
     /** 이번 주(월~금, 시간표에 토·일이 있으면 포함) 요일별 근무 시간 합계 그래프 */
     workChartWeek: function (ctx, anyDate) {
       var mon = DateUtil.monday(anyDate);

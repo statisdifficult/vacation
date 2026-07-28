@@ -64,7 +64,7 @@ function ctx() {
 const COMMANDS = {
   '휴가사용': 'use', '휴가등록': 'use', '휴가신청': 'use',
   '휴가취소': 'cancel', '휴가조회': 'query', '휴가현황': 'status',
-  '근무현황': 'work', '근무표': 'work',
+  '근무현황': 'work', '근무표': 'grid', '시간표': 'grid',
   '휴가전체현황': 'admin', '전체현황': 'admin', '잔여현황': 'admin',
   '휴가도움말': 'help', '도움말': 'help'
 };
@@ -115,6 +115,15 @@ function handle(input) {
     }
     case 'query': return { text: VacationService.query(c).message, priv: true };
     case 'admin': return { text: VacationService.adminSummary(c).message, priv: true };
+    case 'grid': {
+      let date = c.today;
+      if (args) {
+        const p = Parser.parse(args, opts);
+        if (p.error) return { text: '⚠️ ' + p.error, priv: true };
+        date = p.startDate;
+      }
+      return { text: VacationService.workGridDay(c, date).message };
+    }
     case 'status': {
       let date = c.today;
       if (args) {

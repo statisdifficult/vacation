@@ -5,11 +5,15 @@
 var ChartText = (function () {
   var BAR_WIDTH = 12; // 최대 막대 길이(칸)
 
-  /** 한글은 2칸, 영문·숫자는 1칸으로 계산한 표시 폭 */
+  /** 한글·CJK는 2칸, 그 외(영문·숫자·기호)는 1칸으로 계산한 표시 폭 */
   function displayWidth(str) {
     var w = 0;
     for (var i = 0; i < str.length; i++) {
-      w += str.charCodeAt(i) > 0x2000 ? 2 : 1;
+      var c = str.charCodeAt(i);
+      var wide = (c >= 0x1100 && c <= 0x115F) || (c >= 0x2E80 && c <= 0x9FFF) ||
+                 (c >= 0xAC00 && c <= 0xD7A3) || (c >= 0xF900 && c <= 0xFAFF) ||
+                 (c >= 0xFF00 && c <= 0xFF60);
+      w += wide ? 2 : 1;
     }
     return w;
   }

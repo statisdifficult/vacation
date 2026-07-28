@@ -336,6 +336,26 @@ test('일반휴가: 기준연도부터 이월 누적', () => {
   assert.ok(r.message.includes('이월 포함'));
   assert.ok(r.message.includes('212시간')); // 108h×2년 - 4h
 });
+test('근무표: 시간대×사람, 휴가·점심·휴무 표시', () => {
+  const ctx = makeCtx({
+    schedule: {
+      윤지훈: { 1: { start: 600, end: 1140 } },  // 월 10:00-19:00
+      김민수: { 1: { start: 780, end: 1260 } }   // 월 13:00-21:00
+    },
+    records: [{ row: 2, name: '윤지훈', email: 'yoon2839@chilab.kr', type: '일반휴가',
+                ymd: '2026-07-20', startMin: 600, endMin: 720, minutes: 120, status: '등록' }]
+  });
+  const g = VacationService.workGridDay(ctx, TODAY); // 2026-07-20(월)
+  assert.ok(g.message.includes('근무표'));
+  assert.ok(g.message.includes('윤지훈'));
+  assert.ok(g.message.includes('10:00'));
+  assert.ok(g.message.includes('20:00'));
+  assert.ok(g.message.includes('휴'));  // 윤지훈 10-12시 휴가
+  assert.ok(g.message.includes('●'));
+  assert.ok(g.message.includes('─'));  // 점심(13:00) 표시
+  const gh = VacationService.workGridDay(ctx, new Date(2026, 7, 17)); // 공휴일
+  assert.ok(gh.message.includes('대체공휴일'));
+});
 test('주간 그래프', () => {
   const c = VacationService.workChartWeek(makeCtx(), TODAY);
   assert.ok(c.message.includes('월'));
