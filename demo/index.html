@@ -208,6 +208,27 @@
     border: 1px solid var(--line); background: var(--panel); color: var(--ink);
     border-radius: 8px; padding: 6px 9px; font-size: 13px; font-family: inherit;
   }
+  .sv-subtitle { font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
+  .sv-ok { color: var(--accent); font-size: 12px; margin: 8px 0 0; }
+  .sv-in {
+    width: 92px; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    border-radius: 6px; padding: 4px 6px; font-size: 12px; font-family: inherit; text-align: center;
+  }
+  .sv-in:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .mem-row {
+    display: flex; align-items: center; gap: 10px; font-size: 14px;
+    padding: 8px 2px; border-bottom: 1px solid var(--line);
+  }
+  .mem-row .grow2 { flex: 1; }
+  .mem-row small { color: var(--muted); }
+  .mem-add { display: flex; gap: 8px; margin-top: 12px; }
+  .mem-add input, .mem-add select {
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    border-radius: 8px; padding: 8px 10px; font-size: 14px; font-family: inherit;
+  }
+  .mem-add input { flex: 1; min-width: 0; }
+  .mem-add .rf-primary { flex: none; padding: 8px 18px; }
 
   #adminView { flex: 1; overflow-y: auto; padding: 18px 16px; }
   #adminView h2 { margin: 0 0 6px; font-size: 17px; }
@@ -336,6 +357,25 @@
       <i style="background:var(--chip)"></i>점심
       <i></i>휴무·근무 외
     </p>
+
+    <h3>시간표 관리 (관리자)
+      <button class="ghost" id="svEditBtn" type="button" aria-expanded="false">✏️ 편집</button>
+    </h3>
+    <p class="sv-note">이번 달 표를 고치면 바로 반영(확정)되고, 다음 달 표를 고치면
+      <b id="svNextEff"></b>부터 적용됩니다. 실제 운영에서는 구글 시트의 시간표 탭에서
+      새 행 + 적용일로 동일하게 관리합니다.</p>
+    <div id="svEditor" hidden>
+      <h4 id="svCurTitle" class="sv-subtitle"></h4>
+      <div class="sv-scroll"><table id="svEditCur"></table></div>
+      <h4 id="svNextTitle" class="sv-subtitle"></h4>
+      <div class="sv-scroll"><table id="svEditNext"></table></div>
+      <p class="rf-error" id="svEditErr" hidden></p>
+      <p class="sv-ok" id="svEditOk" hidden></p>
+      <div class="rf-actions">
+        <button class="rf-primary" id="svSave" type="button">저장</button>
+        <button class="ghost" id="svRevert" type="button">되돌리기</button>
+      </div>
+    </div>
   </section>
 
   <section id="adminView" hidden>
@@ -344,6 +384,19 @@
       설정 시트에 등록된 관리자는 톡방에서 <b>/휴가전체현황</b>으로도 볼 수 있습니다.
       (관리자 화면이므로 보건휴가도 표시됩니다)</p>
     <div id="admBody"></div>
+
+    <h3 class="sv-subtitle" style="margin-top:20px">사람 관리</h3>
+    <p class="adm-note">실제 운영에서는 명단 시트에 행을 추가·삭제하면 됩니다.
+      제거해도 기존 휴가 기록은 남습니다.</p>
+    <div id="memList"></div>
+    <div class="mem-add">
+      <input id="memName" placeholder="이름" aria-label="이름">
+      <select id="memBirth" aria-label="생일 (선택)">
+        <option value="">생일 (선택)</option>
+      </select>
+      <button class="rf-primary" id="memAdd" type="button">추가</button>
+    </div>
+    <p class="rf-error" id="memErr" hidden></p>
   </section>
 
   <div class="chips" id="chips"></div>
@@ -1437,57 +1490,76 @@ var VacationService = (function () {
   types.forEach(function (t) { alloc[t.name] = t.allocMin; });
 
   var thisMonth = new Date().getMonth() + 1;
-  var members = [
-    // 윤지훈은 이번 달이 생일이라 생일휴가를 바로 실험해 볼 수 있다
-    { name: '윤지훈', email: 'yoon@demo.kr', birthMonth: thisMonth, alloc: alloc },
-    { name: '김민수', email: 'kim@demo.kr', birthMonth: (thisMonth % 12) + 1, alloc: alloc },
-    { name: '이서연', email: 'lee@demo.kr', birthMonth: null, alloc: alloc }
-  ];
-
   function hm(a, b) { return { start: TimeUtil.parseHM(a), end: TimeUtil.parseHM(b) }; }
-  // 시간표는 적용일별 버전 — 윤지훈은 다음 주 월요일부터 근무시간이 바뀌고,
+
+  function defaultMembers() {
+    return [
+      // 윤지훈은 이번 달이 생일이라 생일휴가를 바로 실험해 볼 수 있다
+      { name: '윤지훈', email: 'yoon@demo.kr', birthMonth: thisMonth },
+      { name: '김민수', email: 'kim@demo.kr', birthMonth: (thisMonth % 12) + 1 },
+      { name: '이서연', email: 'lee@demo.kr', birthMonth: null }
+    ];
+  }
+  // 시간표는 적용일별 버전 — 윤지훈은 다음 달 첫 월요일부터 근무시간이 바뀌고,
   // 이서연은 월·수·금 근무 + 점심에도 근무(점심 차감 없음)하는 예시
-  var nextMonday = DateUtil.ymd(DateUtil.addDays(DateUtil.monday(new Date()), 7));
-  var schedule = {
-    '윤지훈': [
-      { effective: null, lunchWork: false,
-        days: { 1: hm('10:00','19:00'), 2: hm('10:00','19:00'), 3: hm('10:00','19:00'), 4: hm('10:00','19:00'), 5: hm('10:00','19:00') } },
-      { effective: nextMonday, lunchWork: false,
-        days: { 1: hm('11:00','20:00'), 2: hm('11:00','20:00'), 3: hm('11:00','20:00'), 4: hm('11:00','20:00'), 5: hm('11:00','20:00') } }
-    ],
-    '김민수': [
-      { effective: null, lunchWork: false,
-        days: { 1: hm('13:00','21:00'), 2: hm('13:00','21:00'), 3: hm('13:00','21:00'), 4: hm('13:00','21:00'), 5: hm('13:00','18:00') } }
-    ],
-    '이서연': [
-      { effective: null, lunchWork: true,
-        days: { 1: hm('10:00','15:00'), 3: hm('10:00','15:00'), 5: hm('10:00','15:00') } }
-    ]
-  };
+  function defaultSchedule() {
+    var nm = DateUtil.ymd(firstMondayOfNextMonth());
+    return {
+      '윤지훈': [
+        { effective: null, lunchWork: false,
+          days: { 1: hm('10:00','19:00'), 2: hm('10:00','19:00'), 3: hm('10:00','19:00'), 4: hm('10:00','19:00'), 5: hm('10:00','19:00') } },
+        { effective: nm, lunchWork: false,
+          days: { 1: hm('11:00','20:00'), 2: hm('11:00','20:00'), 3: hm('11:00','20:00'), 4: hm('11:00','20:00'), 5: hm('11:00','20:00') } }
+      ],
+      '김민수': [
+        { effective: null, lunchWork: false,
+          days: { 1: hm('13:00','21:00'), 2: hm('13:00','21:00'), 3: hm('13:00','21:00'), 4: hm('13:00','21:00'), 5: hm('13:00','18:00') } }
+      ],
+      '이서연': [
+        { effective: null, lunchWork: true,
+          days: { 1: hm('10:00','15:00'), 3: hm('10:00','15:00'), 5: hm('10:00','15:00') } }
+      ]
+    };
+  }
+  function firstMondayOfNextMonth() {
+    var n = new Date();
+    var d = new Date(n.getFullYear(), n.getMonth() + 1, 1);
+    while (d.getDay() !== 1) d = DateUtil.addDays(d, 1);
+    return d;
+  }
+
   var settings = {
     workStart: 600, workEnd: 1140, lunchStart: 720, lunchEnd: 780, // 점심 12:00-13:00
     lunchExcluded: true, defaultDailyMin: 480, honorific: '선생님', gridSlotMin: 30
   };
   var holidays = { '2026-08-17': '대체공휴일(광복절)', '2026-09-25': '추석' };
 
-  var STORE = 'vacation-bot-demo-v1';
-  var records = [];
-  var nextRow = 2;
-  var me = members[0];
+  var STORE = 'vacation-bot-demo-v2';
+  var members, schedule, records, nextRow, me;
 
-  try {
-    var saved = JSON.parse(localStorage.getItem(STORE) || 'null');
-    if (saved && saved.records) {
-      records = saved.records;
-      nextRow = saved.nextRow || (records.length + 2);
-      var found = members.filter(function (m) { return m.name === saved.me; })[0];
-      if (found) me = found;
+  function initState(s) {
+    members = (s && s.members && s.members.length) ? s.members : defaultMembers();
+    members.forEach(function (m) { m.alloc = alloc; });
+    schedule = (s && s.schedule) ? s.schedule : defaultSchedule();
+    records = (s && s.records) ? s.records : [];
+    nextRow = (s && s.nextRow) ? s.nextRow : 2;
+    me = members[0];
+    if (s && s.me) {
+      members.forEach(function (m) { if (m.name === s.me) me = m; });
     }
-  } catch (e) {}
+  }
+  var savedState = null;
+  try { savedState = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch (e) {}
+  initState(savedState);
 
   function save() {
     try {
-      localStorage.setItem(STORE, JSON.stringify({ records: records, nextRow: nextRow, me: me.name }));
+      localStorage.setItem(STORE, JSON.stringify({
+        members: members.map(function (m) {
+          return { name: m.name, email: m.email, birthMonth: m.birthMonth };
+        }),
+        schedule: schedule, records: records, nextRow: nextRow, me: me.name
+      }));
     } catch (e) {}
   }
 
@@ -1650,20 +1722,24 @@ var VacationService = (function () {
 
   /* 사용자 전환 */
   var whoChips = document.getElementById('whoChips');
-  members.forEach(function (m) {
-    var b = document.createElement('button');
-    b.type = 'button'; b.className = 'who'; b.textContent = m.name;
-    b.setAttribute('aria-pressed', String(m === me));
-    b.addEventListener('click', function () {
-      if (me === m) return;
-      me = m; save();
-      Array.prototype.forEach.call(whoChips.children, function (c) {
-        c.setAttribute('aria-pressed', String(c.textContent === m.name));
+  function renderWhoChips() {
+    whoChips.innerHTML = '';
+    members.forEach(function (m) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'who'; b.textContent = m.name;
+      b.setAttribute('aria-pressed', String(m === me));
+      b.addEventListener('click', function () {
+        if (me === m) return;
+        me = m; save();
+        Array.prototype.forEach.call(whoChips.children, function (c) {
+          c.setAttribute('aria-pressed', String(c.textContent === m.name));
+        });
+        addMsg('system', '이제 ' + m.name + ' 선생님으로 입력합니다');
       });
-      addMsg('system', '이제 ' + m.name + ' 선생님으로 입력합니다');
+      whoChips.appendChild(b);
     });
-    whoChips.appendChild(b);
-  });
+  }
+  renderWhoChips();
 
   /* 휴가 등록 양식 */
   var regForm = document.getElementById('regForm');
@@ -1786,7 +1862,7 @@ var VacationService = (function () {
       document.getElementById(t[0]).setAttribute('aria-selected', String(t[1] === name));
     });
     if (name === 'sched') renderSched();
-    if (name === 'admin') renderAdmin();
+    if (name === 'admin') { renderAdmin(); renderMembers(); }
   }
   document.getElementById('tabChat').addEventListener('click', function () { showView('chat'); });
   document.getElementById('tabSched').addEventListener('click', function () { showView('sched'); });
@@ -1874,7 +1950,185 @@ var VacationService = (function () {
       }).join('') + '</tr>';
     }
     gridEl.innerHTML = ghead + grows;
+    renderEditor();
   }
+
+  /* ── 시간표 편집 (이번 달 확정 / 다음 달 변경예정) ── */
+  var EDIT_DAYS = [1, 2, 3, 4, 5, 6, 0]; // 월~일
+  var svEditor = document.getElementById('svEditor');
+  var svEditBtn = document.getElementById('svEditBtn');
+  svEditBtn.addEventListener('click', function () {
+    svEditor.hidden = !svEditor.hidden;
+    svEditBtn.setAttribute('aria-expanded', String(!svEditor.hidden));
+    if (!svEditor.hidden) renderEditor();
+  });
+
+  function versionAt(name, date) {
+    var list = schedule[name];
+    if (!list) return null;
+    var ymd = DateUtil.ymd(date), v = null;
+    list.forEach(function (x) { if (!x.effective || x.effective <= ymd) v = x; });
+    return v;
+  }
+
+  function renderEditorTable(elId, refDate) {
+    var head = '<tr><th>이름</th>' + EDIT_DAYS.map(function (d) {
+      return '<th>' + DateUtil.WEEKDAYS[d] + '</th>';
+    }).join('') + '<th>점심근무</th></tr>';
+    var body = members.map(function (m) {
+      var v = versionAt(m.name, refDate);
+      var cells = EDIT_DAYS.map(function (d) {
+        var val = '';
+        if (v && v.days[d]) {
+          val = TimeUtil.fmtHM(v.days[d].start) + '-' + TimeUtil.fmtHM(v.days[d].end);
+        } else if (!schedule[m.name] && d >= 1 && d <= 5) {
+          // 시간표 미등록자는 기본 근무시간 표시
+          val = TimeUtil.fmtHM(settings.workStart) + '-' + TimeUtil.fmtHM(settings.workEnd);
+        }
+        return '<td><input class="sv-in" data-name="' + esc(m.name) + '" data-day="' + d +
+          '" value="' + esc(val) + '" placeholder="휴무"></td>';
+      }).join('');
+      var lunch = '<td><input type="checkbox" class="sv-lunch" data-name="' + esc(m.name) + '"' +
+        (v && v.lunchWork ? ' checked' : '') + '></td>';
+      return '<tr><td class="name">' + esc(m.name) + '</td>' + cells + lunch + '</tr>';
+    }).join('');
+    document.getElementById(elId).innerHTML = head + body;
+  }
+
+  function renderEditor() {
+    var nm = firstMondayOfNextMonth();
+    var n = new Date();
+    document.getElementById('svNextEff').textContent = DateUtil.kdate(nm);
+    document.getElementById('svCurTitle').textContent =
+      '이번 달 — ' + (n.getMonth() + 1) + '월 (확정, 저장 즉시 반영)';
+    document.getElementById('svNextTitle').textContent =
+      '다음 달 — ' + (nm.getMonth() + 1) + '월 (변경 예정, ' + DateUtil.kdate(nm) + '부터 적용)';
+    if (svEditor.hidden) return;
+    renderEditorTable('svEditCur', n);
+    renderEditorTable('svEditNext', nm);
+  }
+
+  function readEditorTable(elId) {
+    var table = document.getElementById(elId);
+    var out = {}, errors = [];
+    members.forEach(function (m) { out[m.name] = { days: {}, lunchWork: false }; });
+    Array.prototype.forEach.call(table.querySelectorAll('input.sv-in'), function (inp) {
+      var name = inp.getAttribute('data-name'), day = +inp.getAttribute('data-day');
+      var val = inp.value.trim();
+      if (!out[name] || !val || val === '휴무') return;
+      var parts = val.replace(/\s/g, '').split(/[-~]/);
+      var s = TimeUtil.parseHM(parts[0]), e = TimeUtil.parseHM(parts[1]);
+      if (s == null || e == null || e <= s) {
+        errors.push(name + ' ' + DateUtil.WEEKDAYS[day] + '요일 "' + val + '"');
+        return;
+      }
+      out[name].days[day] = { start: s, end: e };
+    });
+    Array.prototype.forEach.call(table.querySelectorAll('input.sv-lunch'), function (chk) {
+      var name = chk.getAttribute('data-name');
+      if (out[name]) out[name].lunchWork = chk.checked;
+    });
+    return { data: out, errors: errors };
+  }
+
+  document.getElementById('svRevert').addEventListener('click', renderEditor);
+  document.getElementById('svSave').addEventListener('click', function () {
+    var errEl = document.getElementById('svEditErr');
+    var okEl = document.getElementById('svEditOk');
+    errEl.hidden = true; okEl.hidden = true;
+
+    var cur = readEditorTable('svEditCur');
+    var next = readEditorTable('svEditNext');
+    var errors = cur.errors.concat(next.errors);
+    if (errors.length) {
+      errEl.textContent = "시간을 '10:00-19:00' 형식으로 입력해 주세요: " + errors.join(', ');
+      errEl.hidden = false;
+      return;
+    }
+
+    var today = new Date();
+    var effYmd = DateUtil.ymd(firstMondayOfNextMonth());
+    members.forEach(function (m) {
+      var list = schedule[m.name] || (schedule[m.name] = []);
+      // 이번 달(확정): 현재 적용 중인 버전을 그대로 수정
+      var v = versionAt(m.name, today);
+      if (!v) { v = { effective: null, days: {}, lunchWork: false }; list.unshift(v); }
+      v.days = cur.data[m.name].days;
+      v.lunchWork = cur.data[m.name].lunchWork;
+      // 다음 달(변경예정): 지금 예정과 다를 때만 적용일 버전으로 저장
+      var planned = versionAt(m.name, firstMondayOfNextMonth());
+      var wanted = next.data[m.name];
+      var same = planned &&
+        JSON.stringify({ d: planned.days, l: !!planned.lunchWork }) ===
+        JSON.stringify({ d: wanted.days, l: !!wanted.lunchWork });
+      if (!same) {
+        var existing = null;
+        list.forEach(function (x) { if (x.effective === effYmd) existing = x; });
+        if (existing) {
+          existing.days = wanted.days; existing.lunchWork = wanted.lunchWork;
+        } else {
+          list.push({ effective: effYmd, days: wanted.days, lunchWork: wanted.lunchWork });
+          list.sort(function (a, b) { return (a.effective || '') < (b.effective || '') ? -1 : 1; });
+        }
+      }
+    });
+    save();
+    renderSched();
+    okEl.textContent = '저장되었습니다. 주간 시간표에서 ◀▶로 넘겨 확인해 보세요.';
+    okEl.hidden = false;
+  });
+
+  /* ── 사람 관리 (관리자 탭) ── */
+  var memBirthSel = document.getElementById('memBirth');
+  for (var bm = 1; bm <= 12; bm++) {
+    var op = document.createElement('option');
+    op.value = String(bm); op.textContent = bm + '월';
+    memBirthSel.appendChild(op);
+  }
+
+  function renderMembers() {
+    var el = document.getElementById('memList');
+    el.innerHTML = '';
+    members.forEach(function (m) {
+      var row = document.createElement('div');
+      row.className = 'mem-row';
+      var birth = m.birthMonth ? '생일 ' + m.birthMonth + '월' : '생일 미등록';
+      var tt = schedule[m.name] ? '' : ' · 시간표 미등록(기본 근무시간)';
+      row.innerHTML = '<span class="grow2">' + esc(m.name) +
+        ' <small>' + esc(birth + tt) + '</small></span>';
+      var del = document.createElement('button');
+      del.type = 'button'; del.className = 'ghost'; del.textContent = '제거';
+      del.addEventListener('click', function () {
+        if (members.length <= 1) return;
+        if (!confirm(m.name + ' 선생님을 명단에서 제거할까요? (휴가 기록은 남습니다)')) return;
+        members = members.filter(function (x) { return x !== m; });
+        if (me === m) me = members[0];
+        save();
+        renderWhoChips(); renderMembers(); renderAdmin();
+        addMsg('system', m.name + ' 선생님이 명단에서 제거되었습니다');
+      });
+      row.appendChild(del);
+      el.appendChild(row);
+    });
+  }
+
+  document.getElementById('memAdd').addEventListener('click', function () {
+    var errEl = document.getElementById('memErr');
+    errEl.hidden = true;
+    var name = document.getElementById('memName').value.trim();
+    if (!name) { errEl.textContent = '이름을 입력해 주세요.'; errEl.hidden = false; return; }
+    if (members.some(function (m) { return m.name === name; })) {
+      errEl.textContent = '이미 같은 이름이 있습니다.'; errEl.hidden = false; return;
+    }
+    var birth = Number(memBirthSel.value) || null;
+    var email = 'user' + Date.now().toString(36) + '@demo.kr';
+    members.push({ name: name, email: email, birthMonth: birth, alloc: alloc });
+    document.getElementById('memName').value = '';
+    memBirthSel.value = '';
+    save();
+    renderWhoChips(); renderMembers(); renderAdmin();
+    addMsg('system', name + ' 선생님이 추가되었습니다. 시간표 탭의 편집에서 근무시간을 입력해 주세요 (미입력 시 월~금 기본 근무시간)');
+  });
 
   function renderAdmin() {
     var c = ctx();
@@ -1924,14 +2178,15 @@ var VacationService = (function () {
     input.focus();
   });
   document.getElementById('resetBtn').addEventListener('click', function () {
-    if (!confirm('체험 데이터를 모두 지울까요?')) return;
-    records = []; nextRow = 2; me = members[0]; save();
-    Array.prototype.forEach.call(whoChips.children, function (c, i) {
-      c.setAttribute('aria-pressed', String(i === 0));
-    });
+    if (!confirm('체험 데이터(휴가 기록·명단·시간표 변경)를 모두 지우고 처음 상태로 되돌릴까요?')) return;
+    try { localStorage.removeItem(STORE); } catch (e) {}
+    initState(null);
+    save();
     chat.innerHTML = '';
+    renderWhoChips();
     renderRecords();
-    if (adminOpen) renderAdmin();
+    if (curView === 'sched') renderSched();
+    if (curView === 'admin') { renderAdmin(); renderMembers(); }
     welcome();
   });
 
