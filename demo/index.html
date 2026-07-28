@@ -167,6 +167,48 @@
     font-size: 12.5px; line-height: 1.5; font-variant-numeric: tabular-nums;
   }
 
+  .tabs { display: flex; border-bottom: 1px solid var(--line); }
+  .tab {
+    flex: 1; padding: 10px 4px; text-align: center; font-size: 13px;
+    background: none; border: none; border-bottom: 2px solid transparent;
+    color: var(--muted); cursor: pointer; font-family: inherit;
+  }
+  .tab[aria-selected="true"] {
+    color: var(--accent); border-bottom-color: var(--accent); font-weight: 700;
+  }
+  .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  #schedView { flex: 1; overflow-y: auto; padding: 16px; }
+  #schedView h2 { margin: 0 0 4px; font-size: 17px; }
+  #schedView h3 { margin: 20px 0 8px; font-size: 14px; }
+  .sv-note { font-size: 12px; color: var(--muted); margin: 0 0 12px; max-width: 60ch; }
+  .sv-nav { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
+  .sv-nav b { flex: 1; text-align: center; font-size: 13px; }
+  .sv-scroll { overflow-x: auto; }
+  .sv-scroll table {
+    border-collapse: collapse; width: 100%; font-size: 13px;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .sv-scroll th, .sv-scroll td {
+    border: 1px solid var(--line); padding: 6px 8px; text-align: center; font-weight: 400;
+  }
+  .sv-scroll th { background: var(--panel-2); color: var(--muted); font-size: 12px; }
+  .sv-scroll td.name { background: var(--panel-2); font-weight: 700; text-align: left; }
+  td.c-work { background: var(--user-bubble); }
+  td.c-vac { background: var(--private-bg); color: var(--private); font-weight: 700; }
+  td.c-lunch { background: var(--chip); color: var(--muted); }
+  td.c-off { color: var(--muted); }
+  td.c-hol { color: var(--danger); }
+  .sv-legend { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .sv-legend i {
+    display: inline-block; width: 12px; height: 12px; border-radius: 3px;
+    vertical-align: -1px; margin: 0 4px 0 10px; border: 1px solid var(--line);
+  }
+  #svDate {
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    border-radius: 8px; padding: 6px 9px; font-size: 13px; font-family: inherit;
+  }
+
   #adminView { flex: 1; overflow-y: auto; padding: 18px 16px; }
   #adminView h2 { margin: 0 0 6px; font-size: 17px; }
   .adm-note { font-size: 12px; color: var(--muted); margin: 0 0 16px; max-width: 60ch; }
@@ -252,9 +294,14 @@
       <div class="botname">휴가봇 <span class="tag">체험 모드</span></div>
       <div class="sub">설치 없이 눌러보는 데모 · 입력한 내용은 이 브라우저에만 저장됩니다</div>
     </div>
-    <button class="ghost" id="adminBtn" type="button">👤 관리자 창</button>
     <button class="ghost" id="resetBtn" type="button">초기화</button>
   </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" id="tabChat" role="tab" aria-selected="true">💬 채팅</button>
+    <button class="tab" id="tabSched" role="tab" aria-selected="false">📅 시간표</button>
+    <button class="tab" id="tabAdmin" role="tab" aria-selected="false">👤 관리자</button>
+  </nav>
 
   <div class="whoRow">
     <span class="wholabel">입력하는 사람</span>
@@ -269,6 +316,27 @@
   </section>
 
   <main id="chat" aria-live="polite"></main>
+
+  <section id="schedView" hidden>
+    <h2>주간 시간표</h2>
+    <p class="sv-note">실제 운영에서는 구글 시트의 <b>시간표</b> 탭을 각자 직접 수정하면 여기(그리고 톡방 /시간표·/근무표)에 바로 반영됩니다.
+      시간표가 바뀌는 주는 시트에 새 행 + 적용일만 적으면 됩니다.</p>
+    <div class="sv-nav">
+      <button class="ghost" id="svPrev" type="button">◀ 지난주</button>
+      <b id="svLabel"></b>
+      <button class="ghost" id="svNext" type="button">다음주 ▶</button>
+    </div>
+    <div class="sv-scroll"><table id="svWeek"></table></div>
+
+    <h3>날짜별 근무표 (30분 단위) <input type="date" id="svDate"></h3>
+    <div class="sv-scroll"><table id="svGrid"></table></div>
+    <p class="sv-legend">
+      <i style="background:var(--user-bubble)"></i>근무
+      <i style="background:var(--private-bg)"></i>휴가
+      <i style="background:var(--chip)"></i>점심
+      <i></i>휴무·근무 외
+    </p>
+  </section>
 
   <section id="adminView" hidden>
     <h2>전체 잔여 휴가</h2>
@@ -1699,21 +1767,114 @@ var VacationService = (function () {
       '<th>시간</th><th>사용</th><th>상태</th></tr></thead><tbody>' + rows + '</tbody></table>';
   }
 
-  /* 관리자 창 */
-  var adminBtn = document.getElementById('adminBtn');
+  /* 탭 전환: 채팅 / 시간표 / 관리자 */
   var adminView = document.getElementById('adminView');
+  var schedView = document.getElementById('schedView');
   var composer = document.getElementById('composer');
-  var adminOpen = false;
+  var curView = 'chat';
 
-  adminBtn.addEventListener('click', function () {
-    adminOpen = !adminOpen;
-    adminView.hidden = !adminOpen;
-    chat.style.display = adminOpen ? 'none' : '';
-    chips.style.display = adminOpen ? 'none' : '';
-    composer.style.display = adminOpen ? 'none' : '';
-    adminBtn.textContent = adminOpen ? '💬 채팅으로' : '👤 관리자 창';
-    if (adminOpen) renderAdmin();
+  function showView(name) {
+    curView = name;
+    var isChat = name === 'chat';
+    chat.style.display = isChat ? '' : 'none';
+    chips.style.display = isChat ? '' : 'none';
+    composer.style.display = isChat ? '' : 'none';
+    if (!isChat) { regForm.hidden = true; }
+    schedView.hidden = name !== 'sched';
+    adminView.hidden = name !== 'admin';
+    [['tabChat', 'chat'], ['tabSched', 'sched'], ['tabAdmin', 'admin']].forEach(function (t) {
+      document.getElementById(t[0]).setAttribute('aria-selected', String(t[1] === name));
+    });
+    if (name === 'sched') renderSched();
+    if (name === 'admin') renderAdmin();
+  }
+  document.getElementById('tabChat').addEventListener('click', function () { showView('chat'); });
+  document.getElementById('tabSched').addEventListener('click', function () { showView('sched'); });
+  document.getElementById('tabAdmin').addEventListener('click', function () { showView('admin'); });
+
+  /* 시간표 창: 주간 시간표 + 날짜별 근무표 (엑셀 형태) */
+  var svWeekStart = DateUtil.monday(new Date());
+  var svDateInput = document.getElementById('svDate');
+  svDateInput.value = DateUtil.ymd(new Date());
+  document.getElementById('svPrev').addEventListener('click', function () {
+    svWeekStart = DateUtil.addDays(svWeekStart, -7); renderSched();
   });
+  document.getElementById('svNext').addEventListener('click', function () {
+    svWeekStart = DateUtil.addDays(svWeekStart, 7); renderSched();
+  });
+  svDateInput.addEventListener('change', renderSched);
+
+  function renderSched() {
+    var c = ctx();
+
+    // 주간 시간표 (행=사람, 열=요일)
+    var hasSat = c.members.some(function (m) { return !!VacationService.scheduleFor(c, m.name, DateUtil.addDays(svWeekStart, 5)); });
+    var hasSun = c.members.some(function (m) { return !!VacationService.scheduleFor(c, m.name, DateUtil.addDays(svWeekStart, 6)); });
+    var count = 5 + (hasSat ? 1 : 0) + (hasSun ? 1 : 0);
+    var dates = [];
+    for (var i = 0; i < count; i++) dates.push(DateUtil.addDays(svWeekStart, i));
+    var last = dates[dates.length - 1];
+    document.getElementById('svLabel').textContent =
+      (svWeekStart.getMonth() + 1) + '/' + svWeekStart.getDate() + ' ~ ' + (last.getMonth() + 1) + '/' + last.getDate();
+
+    var head = '<tr><th>이름</th>' + dates.map(function (d) {
+      return '<th>' + DateUtil.WEEKDAYS[d.getDay()] + ' ' + (d.getMonth() + 1) + '/' + d.getDate() + '</th>';
+    }).join('') + '</tr>';
+    var body = c.members.map(function (m) {
+      return '<tr><td class="name">' + esc(m.name) + '</td>' + dates.map(function (d) {
+        if (c.holidays[DateUtil.ymd(d)]) return '<td class="c-hol">공휴일</td>';
+        var sched = VacationService.scheduleFor(c, m.name, d);
+        if (!sched) return '<td class="c-off">휴무</td>';
+        var txt = TimeUtil.fmtShortHM(sched.start) + '-' + TimeUtil.fmtShortHM(sched.end) + (sched.lunchWork ? '*' : '');
+        return '<td class="c-work">' + esc(txt) + '</td>';
+      }).join('') + '</tr>';
+    }).join('');
+    document.getElementById('svWeek').innerHTML = head + body;
+
+    // 날짜별 근무표 (행=30분, 열=사람)
+    var gd = DateUtil.fromYmd(svDateInput.value) || c.today;
+    var gymd = DateUtil.ymd(gd);
+    var gridEl = document.getElementById('svGrid');
+    if (c.holidays[gymd]) {
+      gridEl.innerHTML = '<tr><td class="c-hol">' + esc(DateUtil.kdate(gd) + '은(는) ' + c.holidays[gymd] + '입니다') + '</td></tr>';
+      return;
+    }
+    var cols = c.members.map(function (m) {
+      return { m: m, sched: VacationService.scheduleFor(c, m.name, gd) };
+    });
+    var working = cols.filter(function (x) { return x.sched; });
+    if (!working.length) {
+      gridEl.innerHTML = '<tr><td class="c-off">' + esc(DateUtil.kdate(gd) + ' 근무자가 없습니다') + '</td></tr>';
+      return;
+    }
+    var minS = Math.min.apply(null, working.map(function (x) { return x.sched.start; }));
+    var maxE = Math.max.apply(null, working.map(function (x) { return x.sched.end; }));
+    var recs = records.filter(function (r) { return r.status === '등록' && r.ymd === gymd; });
+    var lunch = { start: settings.lunchStart, end: settings.lunchEnd };
+
+    var ghead = '<tr><th>' + esc(DateUtil.kdate(gd)) + '</th>' + c.members.map(function (m) {
+      return '<th>' + esc(m.name) + '</th>';
+    }).join('') + '</tr>';
+    var grows = '';
+    for (var t = Math.floor(minS / 30) * 30; t < maxE; t += 30) {
+      var slotS = t, slotE = t + 30;
+      grows += '<tr><td class="name">' + TimeUtil.fmtHM(slotS) + '</td>' + cols.map(function (x) {
+        if (!x.sched) return '<td class="c-off"></td>';
+        var work = TimeUtil.overlapMin(x.sched.start, x.sched.end, slotS, slotE);
+        if (work <= 0) return '<td class="c-off"></td>';
+        if (settings.lunchExcluded && !x.sched.lunchWork &&
+            TimeUtil.overlapMin(lunch.start, lunch.end, slotS, slotE) >= work) return '<td class="c-lunch"></td>';
+        var vac = 0;
+        recs.forEach(function (r) {
+          if (r.email === x.m.email) {
+            vac += TimeUtil.overlapMin(Math.max(r.startMin, x.sched.start), Math.min(r.endMin, x.sched.end), slotS, slotE);
+          }
+        });
+        return vac > 0 ? '<td class="c-vac">휴</td>' : '<td class="c-work"></td>';
+      }).join('') + '</tr>';
+    }
+    gridEl.innerHTML = ghead + grows;
+  }
 
   function renderAdmin() {
     var c = ctx();
@@ -1777,7 +1938,10 @@ var VacationService = (function () {
   function welcome() {
     addMsg('bot', toHtml(
       '안녕하세요, 휴가봇입니다! 🌴\n' +
-      '여기는 *체험 모드*예요. 아래 *➕ 버튼으로 휴가 등록*을 눌러 양식으로 등록하거나, 예시 버튼·직접 입력도 됩니다.\n\n' +
+      '여기는 *체험 모드*예요.\n' +
+      '· 상단 *📅 시간표* 탭 — 주간 시간표와 날짜별 근무표를 엑셀처럼 봅니다\n' +
+      '· 상단 *👤 관리자* 탭 — 전체 잔여 휴가 현황\n' +
+      '· 아래 *➕ 버튼으로 휴가 등록* 또는 예시 버튼·직접 입력으로 휴가를 등록해 보세요\n\n' +
       '· 가상 직원 3명(윤지훈·김민수·이서연)이 각자 다른 시간표로 근무 중입니다\n' +
       '· 위쪽 이름을 눌러 다른 사람 입장에서 등록해 볼 수 있어요\n' +
       '· 📄 기록 시트 버튼으로 구글 시트에 쌓일 데이터를 미리 볼 수 있어요'
