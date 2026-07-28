@@ -233,6 +233,19 @@
   .mem-add input { flex: 1; min-width: 0; }
   .mem-add .rf-primary { flex: none; padding: 8px 18px; }
 
+  .alloc-form {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2);
+    padding: 10px 12px; margin: 8px 0 12px;
+  }
+  .alloc-form label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+  .alloc-form input {
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    border-radius: 6px; padding: 6px 8px; font-size: 13px; font-family: inherit;
+  }
+  .alloc-form .alloc-note { grid-column: 1 / -1; font-size: 11px; color: var(--muted); margin: 0; }
+  .alloc-form .rf-primary { grid-column: 1 / -1; padding: 8px; }
+
   #adminView { flex: 1; overflow-y: auto; padding: 18px 16px; }
   #adminView h2 { margin: 0 0 6px; font-size: 17px; }
   .adm-note { font-size: 12px; color: var(--muted); margin: 0 0 16px; max-width: 60ch; }
@@ -1540,9 +1553,21 @@ var VacationService = (function () {
   var STORE = 'vacation-bot-demo-v2';
   var members, schedule, records, nextRow, me;
 
+  /** 종류별 부여(분): 기본값에 사람별 재정의(시간 단위)를 얹는다 */
+  function buildAlloc(ov) {
+    var o = {};
+    types.forEach(function (t) {
+      o[t.name] = (ov && ov[t.name] != null) ? Math.round(ov[t.name] * 60) : t.allocMin;
+    });
+    return o;
+  }
+
   function initState(s) {
     members = (s && s.members && s.members.length) ? s.members : defaultMembers();
-    members.forEach(function (m) { m.alloc = alloc; });
+    members.forEach(function (m) {
+      m.allocOverride = m.allocOverride || {};
+      m.alloc = buildAlloc(m.allocOverride);
+    });
     schedule = (s && s.schedule) ? s.schedule : defaultSchedule();
     records = (s && s.records) ? s.records : [];
     nextRow = (s && s.nextRow) ? s.nextRow : 2;
@@ -1559,7 +1584,8 @@ var VacationService = (function () {
     try {
       localStorage.setItem(STORE, JSON.stringify({
         members: members.map(function (m) {
-          return { name: m.name, email: m.email, birthMonth: m.birthMonth };
+          return { name: m.name, email: m.email, birthMonth: m.birthMonth,
+                   allocOverride: m.allocOverride };
         }),
         schedule: schedule, records: records, nextRow: nextRow, me: me.name
       }));
@@ -2089,6 +2115,8 @@ var VacationService = (function () {
     memBirthSel.appendChild(op);
   }
 
+  var CYCLE_LABEL = { year: '연', half: '반기당', month: '월', birthmonth: '생일월' };
+
   function renderMembers() {
     var el = document.getElementById('memList');
     el.innerHTML = '';
@@ -2097,8 +2125,12 @@ var VacationService = (function () {
       row.className = 'mem-row';
       var birth = m.birthMonth ? '생일 ' + m.birthMonth + '월' : '생일 미등록';
       var tt = schedule[m.name] ? '' : ' · 시간표 미등록(기본 근무시간)';
+      var custom = Object.keys(m.allocOverride || {}).length ? ' · 부여 조정됨' : '';
       row.innerHTML = '<span class="grow2">' + esc(m.name) +
-        ' <small>' + esc(birth + tt) + '</small></span>';
+        ' <small>' + esc(birth + tt + custom) + '</small></span>';
+
+      var allocBtn = document.createElement('button');
+      allocBtn.type = 'button'; allocBtn.className = 'ghost'; allocBtn.textContent = '휴가 부여';
       var del = document.createElement('button');
       del.type = 'button'; del.className = 'ghost'; del.textContent = '제거';
       del.addEventListener('click', function () {
@@ -2110,8 +2142,39 @@ var VacationService = (function () {
         renderWhoChips(); renderMembers(); renderAdmin();
         addMsg('system', m.name + ' 선생님이 명단에서 제거되었습니다');
       });
+      row.appendChild(allocBtn);
       row.appendChild(del);
       el.appendChild(row);
+
+      // 부여 시간 편집 폼 (늘리기/줄이기)
+      var form = document.createElement('div');
+      form.className = 'alloc-form';
+      form.hidden = true;
+      form.innerHTML = types.map(function (t) {
+        var cyc = t.carryover ? '연·이월' : (CYCLE_LABEL[t.cycle || 'year'] || '연');
+        var ov = m.allocOverride && m.allocOverride[t.name];
+        return '<label>' + esc(t.name) + ' <small>(' + cyc + ', 기본 ' + (t.allocMin / 60) + 'h)</small>' +
+          '<input type="number" min="0" step="0.5" data-type="' + esc(t.name) + '"' +
+          ' value="' + (ov != null ? ov : '') + '" placeholder="' + (t.allocMin / 60) + '"></label>';
+      }).join('') +
+        '<p class="alloc-note">시간(h) 단위. 비우면 기본값으로 돌아갑니다. 잔여는 자동 재계산됩니다.</p>' +
+        '<button type="button" class="rf-primary">저장</button>';
+      allocBtn.addEventListener('click', function () { form.hidden = !form.hidden; });
+      form.querySelector('button').addEventListener('click', function () {
+        var ov = {};
+        Array.prototype.forEach.call(form.querySelectorAll('input[data-type]'), function (inp) {
+          var v = inp.value.trim();
+          if (v === '') return;
+          var n = Number(v);
+          if (!isNaN(n) && n >= 0) ov[inp.getAttribute('data-type')] = n;
+        });
+        m.allocOverride = ov;
+        m.alloc = buildAlloc(ov);
+        save();
+        renderMembers(); renderAdmin();
+        addMsg('system', m.name + ' 선생님의 휴가 부여 시간이 수정되었습니다');
+      });
+      el.appendChild(form);
     });
   }
 
@@ -2125,7 +2188,8 @@ var VacationService = (function () {
     }
     var birth = Number(memBirthSel.value) || null;
     var email = 'user' + Date.now().toString(36) + '@demo.kr';
-    members.push({ name: name, email: email, birthMonth: birth, alloc: alloc });
+    members.push({ name: name, email: email, birthMonth: birth,
+                   allocOverride: {}, alloc: buildAlloc({}) });
     document.getElementById('memName').value = '';
     memBirthSel.value = '';
     save();
